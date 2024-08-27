@@ -34,7 +34,9 @@ class AccelDataParser:
 		                                   format='%H:%M:%S.%f')
 
 		# Extract only the time part (removing the date part)
-		self.data['Timestamp'] = self.data['Timestamp'].dt.time  # This keeps only the time (e.g., 00:00:04.819)
+		# self.data['Timestamp'] = self.data['Timestamp'].dt.time  # This keeps only the time (e.g., 00:00:04.819)
+		# Convert 'Timestamp' to datetime format
+		self.data['Timestamp'] = pd.to_datetime(self.data['Timestamp'], format='%H:%M:%S.%f')
 
 		# Drop the original 'UTC DateTime' and 'Milliseconds' columns
 		self.data.drop(columns=['UTC DateTime', 'Milliseconds'], inplace=True)
