@@ -25,14 +25,25 @@ class Viewer:
         self.data_parser = AccelDataParser(data_path)
         self.labels = []
         self.start_label_time = None
+        self.current_xlim = None  # used to keep pan/zoom consistent across user actions
+        self.current_ylim = None
 
     def load_data(self):
         self.data = self.data_parser.read_data()
         self.prepare_plot()
+        self.set_initial_limits()
+
+    # Initialize plot limits after data is loaded
+    def set_initial_limits(self):
+        self.current_xlim = [self.data['Timestamp'].min(), self.data['Timestamp'].max()]
+        self.ax.set_xlim(self.current_xlim)
+        self.ax.set_ylim([self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
+                          self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()])
+        self.canvas.draw()
 
     def prepare_plot(self):
         self.root = tk.Tk()
-        self.root.title("Accelerometer Data Viewer")
+        self.root.title("AccelScope - F202 - 5/20/2018")        # TODO: set dynamically based on file
 
         self.frame = tk.Frame(self.root)
         self.frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
@@ -43,6 +54,8 @@ class Viewer:
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame)
         self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.user_labels_listbox = tk.Listbox(self.control_frame, height=10)    # TODO: improve visibility of labels
+        self.user_labels_listbox.pack(pady=20)
 
         self.time_label = tk.Label(self.control_frame, text="Time: ")
         self.time_label.pack(pady=10)
@@ -71,18 +84,39 @@ class Viewer:
     def plot_data(self):
         self.ax.clear()
 
-        if self.x_var.get():
-            self.ax.plot(self.data['Timestamp'], self.data['Acc X [g]'], label='X-axis')
-        if self.y_var.get():
-            self.ax.plot(self.data['Timestamp'], self.data['Acc Y [g]'], label='Y-axis')
-        if self.z_var.get():
-            self.ax.plot(self.data['Timestamp'], self.data['Acc Z [g]'], label='Z-axis')
+        # Define colors for each behavior
+        behavior_colors = {
+            'Stalk': 'orange',
+            'Kill Phase 1': 'purple',
+            'Kill Phase 2': 'green',
+            'Feeding': 'blue',
+            'Walking': 'red'
+        }
 
+        # Plot the labeled sections as semi-transparent boxes
+        for label in self.labels:
+            color = behavior_colors.get(label.behavior, 'gray')  # Default to gray if behavior is unknown
+            start_num = mdates.date2num(label.start_time)
+            end_num = mdates.date2num(label.end_time)
+            self.ax.axvspan(start_num, end_num, color=color, alpha=0.2, lw=2, label=label.behavior)
+
+        # Plot the accelerometer data based on the selected axes
+        if self.x_var.get():
+            self.ax.plot(self.data['Timestamp'], self.data['Acc X [g]'], label='X-axis', color='red', alpha=0.6)
+        if self.y_var.get():
+            self.ax.plot(self.data['Timestamp'], self.data['Acc Y [g]'], label='Y-axis', color='black', alpha=0.5)
+        if self.z_var.get():
+            self.ax.plot(self.data['Timestamp'], self.data['Acc Z [g]'], label='Z-axis', color='blue', alpha=0.7)
+
+        if self.current_xlim:
+            self.ax.set_xlim(self.current_xlim)
+        if self.current_ylim:
+            self.ax.set_ylim(self.current_ylim)
+
+        # Update the legend
         self.ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
-
-        self.canvas.draw()
 
     def update_time_readout(self, event):
         if event.inaxes:
@@ -96,6 +130,7 @@ class Viewer:
 
     def update_plot(self):
         self.plot_data()
+        self.canvas.draw()
 
     def on_scroll(self, event):
         if event.key == 'control':
@@ -126,18 +161,24 @@ class Viewer:
             self.ax.set_xlim(mdates.date2num(new_xlim))
             self.canvas.draw_idle()
 
+        self.current_xlim = self.ax.get_xlim()  # Update stored x limits after interaction
+        self.current_ylim = self.ax.get_ylim()  # Update stored y limits after interaction
+        self.canvas.draw_idle()
+
     def on_click(self, event):
         if event.inaxes:
+            # Store current x-axis limits
+            current_xlim = self.ax.get_xlim()
+
             if event.button == 1:  # Left click
                 if self.start_label_time:
                     # End of labeling
                     end_time = mdates.num2date(event.xdata)
                     behavior = self.prompt_for_behavior()
                     if behavior:
-                        self.labels.append(Label(self.start_label_time, end_time, behavior))
-                        print("Labels")
-                        for label in self.labels:
-                            print(label)
+                        new_label = Label(self.start_label_time, end_time, behavior)
+                        self.labels.append(new_label)
+                        self.user_labels_listbox.insert(tk.END, str(new_label))
                     self.start_label_time = None
                     self.status_label.config(text="Left click to start labeling a behavior")
                 else:
@@ -149,6 +190,10 @@ class Viewer:
                 if self.start_label_time:
                     self.start_label_time = None
                     self.status_label.config(text="Left click to start labeling a behavior")
+
+            self.update_plot()
+            self.current_xlim = self.ax.get_xlim()  # Store limits after interaction
+            self.current_ylim = self.ax.get_ylim()
 
     def prompt_for_behavior(self):
         # Prompt the user to select a behavior
