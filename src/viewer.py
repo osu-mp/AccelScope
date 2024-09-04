@@ -1,11 +1,14 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib.patches import Rectangle
 import tkinter as tk
+from tkinter import simpledialog, ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from accel_data_parser import AccelDataParser
 
-class Label:
+
+class Label:        # TODO: move out of this file
     def __init__(self, start_time, end_time, behavior):
         self.start_time = start_time
         self.end_time = end_time
@@ -19,6 +22,21 @@ class Label:
 
         return f"{self.behavior} : {start_time_str} - {end_time_str} ({self.duration})"
 
+
+class BehaviorDialog(simpledialog.Dialog):      # TODO: move out of this file
+    def body(self, master):
+        tk.Label(master, text="Select Behavior:").grid(row=0)
+        self.var = tk.StringVar(master)
+        self.var.set("Stalk")  # default value
+        self.options = ['Stalk', 'Kill Phase 1', 'Kill Phase 2', 'Feeding', 'Walking']
+        self.dropdown = ttk.Combobox(master, textvariable=self.var, values=self.options, state='readonly')
+        self.dropdown.grid(row=0, column=1)
+        return self.dropdown  # return the dropdown as the initial focus widget
+
+    def apply(self):
+        self.result = self.var.get()  # set the result from the dialog to the selected option
+
+
 class Viewer:
     def __init__(self, data_path):
         self.data_path = data_path
@@ -27,6 +45,8 @@ class Viewer:
         self.start_label_time = None
         self.current_xlim = None  # used to keep pan/zoom consistent across user actions
         self.current_ylim = None
+        self.selected_label = None
+        self.dragging = False
 
     def load_data(self):
         self.data = self.data_parser.read_data()
@@ -77,9 +97,10 @@ class Viewer:
 
         self.plot_data()
 
-        self.canvas.mpl_connect('motion_notify_event', self.update_time_readout)
+        self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
         self.canvas.mpl_connect('scroll_event', self.on_scroll)
         self.canvas.mpl_connect('button_press_event', self.on_click)
+        self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
 
     def plot_data(self):
         self.ax.clear()
@@ -92,13 +113,20 @@ class Viewer:
             'Feeding': 'blue',
             'Walking': 'red'
         }
+        self.rectangles = {}
 
         # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
             color = behavior_colors.get(label.behavior, 'gray')  # Default to gray if behavior is unknown
             start_num = mdates.date2num(label.start_time)
             end_num = mdates.date2num(label.end_time)
-            self.ax.axvspan(start_num, end_num, color=color, alpha=0.2, lw=2, label=label.behavior)
+
+            bottom, top = self.current_ylim
+            rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=0.2, lw=2,
+                             edgecolor=color)
+
+            self.ax.add_patch(rect)
+            self.rectangles[label] = rect
 
         # Plot the accelerometer data based on the selected axes
         if self.x_var.get():
@@ -118,15 +146,35 @@ class Viewer:
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
 
-    def update_time_readout(self, event):
-        if event.inaxes:
-            time_str = mdates.num2date(event.xdata).strftime('%H:%M:%S.%f')[:-3]
-            cursor_time = pd.Timestamp(mdates.num2date(event.xdata)).tz_localize(None)
-            nearest_index = self.data['Timestamp'].sub(cursor_time).abs().idxmin()
-            x_val = self.data['Acc X [g]'].iloc[nearest_index]
-            y_val = self.data['Acc Y [g]'].iloc[nearest_index]
-            z_val = self.data['Acc Z [g]'].iloc[nearest_index]
-            self.time_label.config(text=f"Time: {time_str} \n X: {x_val:.3f}g \n Y: {y_val:.3f}g \n Z: {z_val:.3f}g")
+    def on_mouse_move(self, event):
+        if event.inaxes and self.dragging and self.selected_label:
+            rect = self.rectangles[self.selected_label]
+            # Only adjust the rectangle during the drag, not the label data.
+            if self.drag_edge == 'start':
+                if event.xdata < rect.get_x() + rect.get_width():  # Prevent overlap
+                    # Calculate the new width by subtracting the new x position from the old x position plus the old width
+                    new_width = (rect.get_x() + rect.get_width()) - event.xdata
+                    rect.set_x(event.xdata)
+                    rect.set_width(new_width)
+                    self.ax.figure.canvas.draw_idle()  # Efficient redraw of the plot
+            elif self.drag_edge == 'end':
+                if event.xdata > rect.get_x():  # Prevent overlap
+                    rect.set_width(event.xdata - rect.get_x())
+                    self.ax.figure.canvas.draw_idle()  # Efficient redraw of the plot
+
+            return
+
+        near_edge = False
+        for label, rect in self.rectangles.items():
+            if event.xdata and (abs(rect.get_x() - event.xdata) <= 0.01 or abs(
+                    rect.get_x() + rect.get_width() - event.xdata) <= 0.01):
+                self.canvas.get_tk_widget().config(cursor="sb_h_double_arrow")
+                self.selected_label = label
+                near_edge = True
+                break
+        if not near_edge:
+            self.canvas.get_tk_widget().config(cursor="")
+            self.selected_label = None
 
     def update_plot(self):
         self.plot_data()
@@ -167,10 +215,21 @@ class Viewer:
 
     def on_click(self, event):
         if event.inaxes:
-            # Store current x-axis limits
-            current_xlim = self.ax.get_xlim()
-
             if event.button == 1:  # Left click
+                for label, rect in self.rectangles.items():
+                    if event.xdata and (abs(rect.get_x() - event.xdata) <= 0.01):
+                        self.dragging = True
+                        self.selected_label = label
+                        self.drag_edge = 'start'  # Dragging the start edge
+                        self.drag_start = event.xdata
+                        return
+                    elif event.xdata and (abs(rect.get_x() + rect.get_width() - event.xdata) <= 0.01):
+                        self.dragging = True
+                        self.selected_label = label
+                        self.drag_edge = 'end'  # Dragging the end edge
+                        self.drag_start = event.xdata
+                        return
+
                 if self.start_label_time:
                     # End of labeling
                     end_time = mdates.num2date(event.xdata)
@@ -195,15 +254,36 @@ class Viewer:
             self.current_xlim = self.ax.get_xlim()  # Store limits after interaction
             self.current_ylim = self.ax.get_ylim()
 
+    def on_mouse_release(self, event):
+        if self.dragging and self.selected_label:
+            # Update the label data only when the mouse is released.
+            rect = self.rectangles[self.selected_label]
+            if self.drag_edge == 'start':
+                new_start_time = mdates.num2date(rect.get_x())
+                self.selected_label.start_time = new_start_time
+            elif self.drag_edge == 'end':
+                new_end_time = mdates.num2date(rect.get_x() + rect.get_width())
+                self.selected_label.end_time = new_end_time
+
+            self.dragging = False
+            self.plot_data()  # Replot to ensure all elements are updated correctly
+            self.update_label_list()  # Assuming a method to update the list display of labels
+
+            self.canvas.get_tk_widget().config(cursor="")
+
+    def update_label_list(self):
+        # Clear existing entries in the listbox
+        self.user_labels_listbox.delete(0, tk.END)
+
+        # Repopulate the listbox with updated label data
+        for label in sorted(self.labels, key=lambda x: x.start_time):  # Sort labels by start time
+            self.user_labels_listbox.insert(tk.END, str(label))
+
     def prompt_for_behavior(self):
         # Prompt the user to select a behavior
-        behavior = tk.simpledialog.askstring("Select Behavior", "Enter behavior (Stalk, Kill Phase 1, Kill Phase 2, Feeding, Walking):")
-        valid_behaviors = ['Stalk', 'Kill Phase 1', 'Kill Phase 2', 'Feeding', 'Walking']
-        if behavior in valid_behaviors:
-            return behavior
-        else:
-            tk.messagebox.showerror("Invalid Input", "Please enter a valid behavior.")
-            return None
+        dialog = BehaviorDialog(None, title="Select Behavior")
+        return dialog.result
+
 
     def run(self):
         self.load_data()
