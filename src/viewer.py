@@ -37,8 +37,9 @@ class BehaviorDialog(simpledialog.Dialog):      # TODO: move out of this file
         self.result = self.var.get()  # set the result from the dialog to the selected option
 
 
-class Viewer:
-    def __init__(self, data_path):
+class Viewer(tk.Frame):
+    def __init__(self, parent, data_path, **kwargs):
+        super().__init__(parent, **kwargs)
         self.data_path = data_path
         self.data_parser = AccelDataParser(data_path)
         self.labels = []
@@ -47,6 +48,7 @@ class Viewer:
         self.current_ylim = None
         self.selected_label = None
         self.dragging = False
+        self.load_data()
 
     def load_data(self):
         self.data = self.data_parser.read_data()
@@ -62,41 +64,45 @@ class Viewer:
         self.canvas.draw()
 
     def prepare_plot(self):
-        self.root = tk.Tk()
-        self.root.title("AccelScope - F202 - 5/20/2018")        # TODO: set dynamically based on file
+        # Setup the matplotlib figure
+        self.fig, self.ax = plt.subplots(figsize=(10, 6))
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # Use self as the master
+        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
 
-        self.frame = tk.Frame(self.root)
-        self.frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
-
-        self.control_frame = tk.Frame(self.root)
+        # Right control frame for additional controls and info
+        self.control_frame = tk.Frame(self)
         self.control_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
-        self.fig, self.ax = plt.subplots(figsize=(10, 6))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame)
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        self.user_labels_listbox = tk.Listbox(self.control_frame, height=10)    # TODO: improve visibility of labels
+        # Listbox for user labels
+        self.user_labels_listbox = tk.Listbox(self.control_frame, height=10)
         self.user_labels_listbox.pack(pady=20)
 
+        # Time label display
         self.time_label = tk.Label(self.control_frame, text="Time: ")
         self.time_label.pack(pady=10)
 
+        # Status label display
         self.status_label = tk.Label(self.control_frame, text="Left click to start labeling a behavior")
         self.status_label.pack(pady=10)
 
+        # Checkboxes for axis control
         self.x_var = tk.BooleanVar(value=True)
         self.y_var = tk.BooleanVar(value=True)
         self.z_var = tk.BooleanVar(value=True)
-
-        self.x_checkbox = tk.Checkbutton(self.control_frame, text="X-axis", variable=self.x_var, command=self.update_plot)
-        self.y_checkbox = tk.Checkbutton(self.control_frame, text="Y-axis", variable=self.y_var, command=self.update_plot)
-        self.z_checkbox = tk.Checkbutton(self.control_frame, text="Z-axis", variable=self.z_var, command=self.update_plot)
-
+        self.x_checkbox = tk.Checkbutton(self.control_frame, text="X-axis", variable=self.x_var,
+                                         command=self.update_plot)
+        self.y_checkbox = tk.Checkbutton(self.control_frame, text="Y-axis", variable=self.y_var,
+                                         command=self.update_plot)
+        self.z_checkbox = tk.Checkbutton(self.control_frame, text="Z-axis", variable=self.z_var,
+                                         command=self.update_plot)
         self.x_checkbox.pack(anchor=tk.W)
         self.y_checkbox.pack(anchor=tk.W)
         self.z_checkbox.pack(anchor=tk.W)
 
+        # Plot the initial data
         self.plot_data()
 
+        # Connect mouse and scroll events
         self.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
         self.canvas.mpl_connect('scroll_event', self.on_scroll)
         self.canvas.mpl_connect('button_press_event', self.on_click)
@@ -123,7 +129,7 @@ class Viewer:
 
             bottom, top = self.current_ylim
             rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=0.2, lw=2,
-                             edgecolor=color)
+                             edgecolor=color, label=label.behavior)
 
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
