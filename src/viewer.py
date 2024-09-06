@@ -8,19 +8,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from accel_data_parser import AccelDataParser
 
 
-class Label:        # TODO: move out of this file
-    def __init__(self, start_time, end_time, behavior):
-        self.start_time = start_time
-        self.end_time = end_time
-        self.behavior = behavior
-        self.duration = self.end_time - self.start_time
-
-    def __str__(self):
-        # Format the start_time and end_time to show only the time
-        start_time_str = self.start_time.strftime('%H:%M:%S.%f')[:-3]
-        end_time_str = self.end_time.strftime('%H:%M:%S.%f')[:-3]
-
-        return f"{self.behavior} : {start_time_str} - {end_time_str} ({self.duration})"
 
 
 class BehaviorDialog(simpledialog.Dialog):      # TODO: move out of this file

@@ -6,6 +6,8 @@ from gui_components.project_browser import ProjectBrowser
 from viewer import Viewer  # Make sure to have the Viewer class in viewer.py or adjust the import based on your structure
 from gui_components.status_bar import StatusBar
 
+from gui_components.new_project_dialog import NewProjectDialog
+
 class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -53,7 +55,7 @@ class MainApplication(tk.Tk):
 
     def create_menus(self):
         file_menu = Menu(self.menu_bar, tearoff=0)
-        file_menu.add_command(label='New Project', command=self.open_file)
+        file_menu.add_command(label='New Project', command=self.open_new_project_dialog)
         file_menu.add_command(label='Open Project', command=self.save_file)
         file_menu.add_separator()
         file_menu.add_command(label='Exit', command=self.quit)
@@ -72,8 +74,14 @@ class MainApplication(tk.Tk):
         self.menu_bar.add_cascade(label='Edit', menu=edit_menu)
         self.menu_bar.add_cascade(label='Help', menu=help_menu)
 
+    def open_new_project_dialog(self):
+        # This method ensures the dialog is properly parented to the main application window
+        new_project_dialog = NewProjectDialog(self)
+        new_project_dialog.transient(self)  # Optionally make the dialog transient
+        new_project_dialog.grab_set()  # Optional, but makes the dialog modal
+
     def open_file(self):
-        pass  # Implement file open logic
+        pass
 
     def save_file(self):
         pass  # Implement file save logic
