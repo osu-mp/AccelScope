@@ -8,26 +8,36 @@ class NewProjectDialog(tk.Toplevel):
         self.title("New Project")
         self.geometry("400x300")
 
+        # Use grid layout manager instead of pack
+        ttk.Label(self, text="Project Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        self.name_entry = ttk.Entry(self)
+        self.name_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+
         # Project Location
-        ttk.Label(self, text="Project File Location:").pack()
+        ttk.Label(self, text="Project File Location:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
         self.location_entry = ttk.Entry(self)
-        self.location_entry.pack(fill=tk.X)
-        ttk.Button(self, text="Browse", command=self.select_file).pack()
+        self.location_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
+        ttk.Button(self, text="Browse", command=self.select_file).grid(row=1, column=2, padx=5, pady=5)
 
         # Data Root
-        ttk.Label(self, text="Input data root:").pack()
+        ttk.Label(self, text="Input data root:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
         self.data_root_entry = ttk.Entry(self)
-        self.data_root_entry.pack(fill=tk.X)
-        ttk.Button(self, text="Browse", command=self.select_directory).pack()
+        self.data_root_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=5)
+        ttk.Button(self, text="Browse", command=self.select_directory).grid(row=2, column=2, padx=5, pady=5)
 
         # Output Style
-        ttk.Label(self, text="Output Style:").pack()
+        ttk.Label(self, text="Output Style:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
         self.output_style = ttk.Combobox(self, values=["Output all data", "Output data only between labels"])
-        self.output_style.pack(fill=tk.X)
+        self.output_style.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=5)
 
         # Confirmation Buttons
-        ttk.Button(self, text="Cancel", command=self.destroy).pack()
-        ttk.Button(self, text="Create Project", command=self.create_project).pack()
+        ttk.Button(self, text="Cancel", command=self.destroy).grid(row=4, column=0, padx=5, pady=5)
+        ttk.Button(self, text="Create Project", command=self.create_project).grid(row=4, column=1, padx=5, pady=5)
+
+        # Make sure columns expand properly
+        self.grid_columnconfigure(0, weight=1)  # Let column 0 (labels) expand
+        self.grid_columnconfigure(1, weight=3)  # Let column 1 (inputs) take more space
+        self.grid_columnconfigure(2, weight=1)  # Optional: adjust for the browse buttons
 
     def select_file(self):
         # Prompt the user to select a file path for saving a JSON file
@@ -61,6 +71,7 @@ class NewProjectDialog(tk.Toplevel):
 
     def create_project(self):
         # Get values from the dialog's input fields
+        proj_name = self.name_entry.get()
         location = self.location_entry.get()
         data_root = self.data_root_entry.get()
 
@@ -70,6 +81,7 @@ class NewProjectDialog(tk.Toplevel):
         # Initialize the project configuration with the specified location
         project_config = ProjectConfig(location)
         project_config.initialize_empty_config(data_root)
+        project_config.set_proj_name(proj_name)
 
         # Save the new configuration to create the JSON file
         project_config.save_config()
