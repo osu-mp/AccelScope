@@ -3,6 +3,7 @@ from tkinter import ttk, filedialog, messagebox
 
 from services.project_config import Directory, FileEntry
 
+
 class ProjectBrowser(tk.Frame):
     def __init__(self, parent, project_config, **kwargs):
         super().__init__(parent, **kwargs)
@@ -30,6 +31,7 @@ class ProjectBrowser(tk.Frame):
         self.menu.add_command(label="Import CSV File", command=self.import_csv)
 
         self.tree.bind("<Button-3>", self.show_context_menu)  # Right-click on Windows/Linux
+        self.tree.bind("<Double-1>", self.on_double_click)
 
     def show_context_menu(self, event):
         iid = self.tree.identify_row(event.y)
@@ -61,10 +63,23 @@ class ProjectBrowser(tk.Frame):
     def import_csv(self):
         selected_item = self.tree.selection()[0]
         filepath = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
+
         if filepath:
+            full_path = self.get_full_path(selected_item)
+
+            # Get the relative path based on the data_root_directory
+            relative_path = filepath.replace(self.project_config.data_root_directory, "").lstrip('/').lstrip('\\')
+
             # Insert the file into the tree and update the project configuration
-            self.tree.insert(selected_item, 'end', text=filepath.split('/')[-1])
-            # Update the actual project configuration
+            self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1])
+
+            # Update the actual project configuration with the relative path
+            file_entry = FileEntry(relative_path)
+            self.project_config.add_file(full_path, file_entry)
+            self.project_config.save_config()
+
+            # Notify the main GUI that a file was imported
+            self.master.file_imported(filepath)
 
     def load_project(self):
         # Clear the tree first
@@ -93,3 +108,20 @@ class ProjectBrowser(tk.Frame):
                 # Add a file node
                 self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1])
 
+    def on_double_click(self, event):
+        """Handle double-click on a tree item"""
+        selected_item = self.tree.selection()[0]
+        file_name = self.tree.item(selected_item, 'text')
+
+        # Get the full path from the ProjectConfig by searching the directory structure
+        full_path = self.get_full_path(selected_item)
+
+        # Find the actual file entry in the ProjectConfig
+        file_entry = self.project_config.find_file_by_name(file_name)
+
+        if file_entry:
+            # Combine the data root directory with the relative path stored in FileEntry
+            full_file_path = f"{self.project_config.data_root_directory}/{file_entry.path}"
+
+            # Inform the main application to load the file in the viewer
+            self.master.load_csv(full_file_path)

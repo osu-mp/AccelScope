@@ -25,22 +25,36 @@ class BehaviorDialog(simpledialog.Dialog):      # TODO: move out of this file
 
 
 class Viewer(tk.Frame):
-    def __init__(self, parent, data_path, **kwargs):
+    def __init__(self, parent, status_bar, **kwargs):
         super().__init__(parent, **kwargs)
-        self.data_path = data_path
-        self.data_parser = AccelDataParser(data_path)
+        self.status_bar = status_bar
+        self.data_path = None
+        self.data = None
         self.labels = []
         self.start_label_time = None
         self.current_xlim = None  # used to keep pan/zoom consistent across user actions
         self.current_ylim = None
         self.selected_label = None
         self.dragging = False
-        self.load_data()
+        self.setup_viewer()
 
-    def load_data(self):
-        self.data = self.data_parser.read_data()
-        self.prepare_plot()
-        self.set_initial_limits()
+    def setup_viewer(self):
+        self.status_bar.set("Please load a CSV from the Project Browser")
+
+    def load_data(self, data_path):
+        self.data_path = data_path
+        data_parser = AccelDataParser(data_path)
+        self.data = data_parser.read_data()
+
+        if self.data is not None:
+            self.prepare_plot()
+            self.set_initial_limits()
+
+    def get_data_path(self):
+        if self.data_path:
+            # Return the filename without the .csv extension
+            return self.data_path.split('/')[-1].replace('.csv', '')
+        return None
 
     # Initialize plot limits after data is loaded
     def set_initial_limits(self):
@@ -51,6 +65,12 @@ class Viewer(tk.Frame):
         self.canvas.draw()
 
     def prepare_plot(self):
+        if self.data is None:
+            # Display message when no data is loaded
+            self.ax.text(0.5, 0.5, 'Please load a CSV file from the Project Browser',
+                         horizontalalignment='center', verticalalignment='center',
+                         transform=self.ax.transAxes, fontsize=12, color='gray')
+
         # Setup the matplotlib figure
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # Use self as the master

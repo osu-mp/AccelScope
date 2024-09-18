@@ -87,7 +87,8 @@ class MainApplication(tk.Tk):
         self.paned_window.add(self.project_browser, minsize=100)  # Ensure a minimum size
 
         # Initialize the main viewer/content area as another pane
-        self.viewer = Viewer(self, data_path='../test/data/F202_2018-05-20.csv', width=600, relief=tk.SUNKEN)
+        # self.viewer = Viewer(self, data_path='../test/data/F202_2018-05-20.csv', width=600, relief=tk.SUNKEN)
+        self.viewer = Viewer(self, status_bar=self.status_bar, width=600, relief=tk.SUNKEN)
         # self.viewer_content = ttk.Frame(self.paned_window, width=600, relief=tk.SUNKEN)
         # self.paned_window.add(self.viewer_content, minsize=200)  # Slightly larger minimum size
         self.paned_window.add(self.viewer, minsize=200)
@@ -100,6 +101,10 @@ class MainApplication(tk.Tk):
         info_pane_label = tk.Label(self.info_pane, text='Info Pane', bg='blue')
         info_pane_label.pack(fill=tk.BOTH, expand=True)
 
+
+    def file_imported(self, file_path):
+        self.viewer.load_data(file_path)
+        self.status_bar.set(f"Successfully loaded CSV into viewer: {self.viewer.get_data_path()}")
 
     def open_new_project_dialog(self):
         # This method ensures the dialog is properly parented to the main application window
@@ -133,6 +138,13 @@ class MainApplication(tk.Tk):
             format='%(asctime)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
+
+    def load_csv(self, file_path):
+        """Loads the CSV in the viewer and updates the status bar"""
+        self.status_bar.set(f"Attempting to load CSV: {csv_name}")
+        self.viewer.load_data(file_path)
+        csv_name = self.viewer.get_data_path()
+        self.status_bar.set(f"Loaded CSV: {csv_name}")
 
 
 class ButtonBar(tk.Frame):

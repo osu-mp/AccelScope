@@ -118,4 +118,25 @@ class ProjectConfig:
 
         return current_dir  # Return the directory found at the end of the path
 
+    def add_file(self, parent_full_path, file_entry):
+        parent_dir = self.find_directory_by_path(parent_full_path)
 
+        if parent_dir:
+            parent_dir.entries.append(file_entry)
+        else:
+            print(f"Parent directory not found for path: {parent_full_path}")
+
+    def find_file_by_name(self, file_name):
+        """Recursively searches the directory structure to find a file by its name."""
+        return self._search_file(self.root_directory, file_name)
+
+    def _search_file(self, directory, file_name):
+        """Helper method to recursively search through directories and find the matching file."""
+        for entry in directory.entries:
+            if isinstance(entry, FileEntry) and entry.path.endswith(file_name):
+                return entry
+            elif isinstance(entry, Directory):
+                found = self._search_file(entry, file_name)
+                if found:
+                    return found
+        return None
