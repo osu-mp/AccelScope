@@ -4,7 +4,7 @@ from tkinter import ttk
 from tkinter import Menu
 
 from gui_components.project_browser import ProjectBrowser
-from viewer import Viewer  # Make sure to have the Viewer class in viewer.py or adjust the import based on your structure
+from gui_components.viewer import Viewer  # Make sure to have the Viewer class in viewer.py or adjust the import based on your structure
 from gui_components.status_bar import StatusBar
 
 from gui_components.new_project_dialog import NewProjectDialog
@@ -26,7 +26,19 @@ class MainApplication(tk.Tk):
 
         self.create_menus()
 
-        self.setup_gui()
+        # Create the status bar
+        self.status_bar = StatusBar(self)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Create the viewer instance once
+        self.viewer = Viewer(self, self.status_bar)
+        self.viewer.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Create the project browser
+        self.project_browser = ProjectBrowser(self, project_config=self.load_project_config())
+        self.project_browser.pack(side=tk.LEFT, fill=tk.Y)
+
+        # self.setup_gui()
 
         # TODO remove
         self.open_project()
@@ -89,6 +101,7 @@ class MainApplication(tk.Tk):
         # Initialize the main viewer/content area as another pane
         # self.viewer = Viewer(self, data_path='../test/data/F202_2018-05-20.csv', width=600, relief=tk.SUNKEN)
         self.viewer = Viewer(self, status_bar=self.status_bar, width=600, relief=tk.SUNKEN)
+        self.viewer.set_project_config(self.project_config)
         # self.viewer_content = ttk.Frame(self.paned_window, width=600, relief=tk.SUNKEN)
         # self.paned_window.add(self.viewer_content, minsize=200)  # Slightly larger minimum size
         self.paned_window.add(self.viewer, minsize=200)
@@ -116,9 +129,14 @@ class MainApplication(tk.Tk):
         # TODO
         self.project_config = ProjectConfig("D:/OSU/AccelScopeDemo/test.json")
         self.project_config.load_config()
+        self.viewer.set_project_config(self.project_config)
 
         # self.project_browser = ProjectBrowser(self, self.project_config)
         self.setup_gui()
+
+    def load_project_config(self):
+        # Load the project config (example placeholder)
+        return ProjectConfig("D:/OSU/AccelScopeDemo/test.json")
 
     def open_file(self):
         pass
@@ -141,7 +159,7 @@ class MainApplication(tk.Tk):
 
     def load_csv(self, file_path):
         """Loads the CSV in the viewer and updates the status bar"""
-        self.status_bar.set(f"Attempting to load CSV: {csv_name}")
+        self.status_bar.set(f"Attempting to load CSV: {file_path}")
         self.viewer.load_data(file_path)
         csv_name = self.viewer.get_data_path()
         self.status_bar.set(f"Loaded CSV: {csv_name}")

@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import simpledialog, ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from accel_data_parser import AccelDataParser
-
+from models.label import Label
 
 
 
@@ -36,45 +36,18 @@ class Viewer(tk.Frame):
         self.current_ylim = None
         self.selected_label = None
         self.dragging = False
+        self.project_config = None
+        self.file_entry = None  # Reference to the project config's FileEntry for the loaded CSV
         self.setup_viewer()
+
 
     def setup_viewer(self):
         self.status_bar.set("Please load a CSV from the Project Browser")
 
-    def load_data(self, data_path):
-        self.data_path = data_path
-        data_parser = AccelDataParser(data_path)
-        self.data = data_parser.read_data()
-
-        if self.data is not None:
-            self.prepare_plot()
-            self.set_initial_limits()
-
-    def get_data_path(self):
-        if self.data_path:
-            # Return the filename without the .csv extension
-            return self.data_path.split('/')[-1].replace('.csv', '')
-        return None
-
-    # Initialize plot limits after data is loaded
-    def set_initial_limits(self):
-        self.current_xlim = [self.data['Timestamp'].min(), self.data['Timestamp'].max()]
-        self.ax.set_xlim(self.current_xlim)
-        self.ax.set_ylim([self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
-                          self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()])
-        self.canvas.draw()
-
-    def prepare_plot(self):
-        if self.data is None:
-            # Display message when no data is loaded
-            self.ax.text(0.5, 0.5, 'Please load a CSV file from the Project Browser',
-                         horizontalalignment='center', verticalalignment='center',
-                         transform=self.ax.transAxes, fontsize=12, color='gray')
-
-        # Setup the matplotlib figure
+        # Setup for the viewer (figure, canvas, etc.)
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self)  # Use self as the master
-        self.canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
         # Right control frame for additional controls and info
         self.control_frame = tk.Frame(self)
@@ -106,6 +79,117 @@ class Viewer(tk.Frame):
         self.y_checkbox.pack(anchor=tk.W)
         self.z_checkbox.pack(anchor=tk.W)
 
+    def set_project_config(self, project_config):
+        if project_config:
+            self.project_config = project_config
+
+            # relative_path = self.data_path.replace(self.project_config.data_root_directory, "").lstrip(
+            #     '/')
+            #
+            # self.file_entry = self.project_config.find_file_by_name(relative_path)
+
+    def load_data(self, file_path):
+        # Clear previous data
+        self.data_path = file_path
+        self.ax.clear()
+        self.labels.clear()  # Clear existing labels
+
+        # Load the new CSV file and parse data
+        data_parser = AccelDataParser(file_path)
+        self.data = data_parser.read_data()
+
+        if self.data is not None:
+            # Find the corresponding file entry in the project config for this file
+            relative_path = file_path.replace(self.project_config.data_root_directory, "").lstrip('/')
+            self.file_entry = self.project_config.find_file_by_name(relative_path)
+
+            # If there are labels in the project config for this file, load them
+            if self.file_entry and self.file_entry.labels:
+                self.labels = self.file_entry.labels
+                self.update_label_list()  # Update the label listbox
+
+            self.prepare_plot()
+            self.set_initial_limits()
+
+        # Update the status bar with the name of the loaded file
+        self.status_bar.set(f"Viewing: {file_path}")
+
+
+    def get_data_path(self):
+        if self.data_path:
+            # Return the filename without the .csv extension
+            return self.data_path.split('/')[-1].replace('.csv', '')
+        return None
+
+    # Initialize plot limits after data is loaded
+    def set_initial_limits(self):
+        self.current_xlim = [self.data['Timestamp'].min(), self.data['Timestamp'].max()]
+        self.ax.set_xlim(self.current_xlim)
+        self.ax.set_ylim([self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
+                          self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()])
+        self.canvas.draw()
+
+    def prepare_plot(self):
+        if self.data is None:
+            # Display message when no data is loaded
+            self.ax.text(0.5, 0.5, 'Please load a CSV file from the Project Browser',
+                         horizontalalignment='center', verticalalignment='center',
+                         transform=self.ax.transAxes, fontsize=12, color='gray')
+        else:
+            # Clear the plot to remove any previous content
+            self.ax.clear()
+
+            # Set Y-limits based on actual data range if they haven't been set before
+            if self.current_ylim is None:
+                self.current_ylim = [
+                    self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
+                    self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()
+                ]
+            bottom, top = self.current_ylim  # Use correct Y-limits from the data range
+
+            # Define colors for each behavior
+            behavior_colors = {
+                'Stalk': 'orange',
+                'Kill Phase 1': 'purple',
+                'Kill Phase 2': 'green',
+                'Feeding': 'blue',
+                'Walking': 'red'
+            }
+            self.rectangles = {}
+
+            # Plot the labeled sections as semi-transparent boxes
+            for label in self.labels:
+                color = behavior_colors.get(label.behavior, 'gray')  # Default to gray if behavior is unknown
+                start_num = mdates.date2num(label.start_time)
+                end_num = mdates.date2num(label.end_time)
+
+                # Ensure the rectangle spans the entire Y-axis (from bottom to top)
+                rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=0.2, lw=2,
+                                 edgecolor=color, label=label.behavior)
+
+                self.ax.add_patch(rect)
+                self.rectangles[label] = rect
+
+            # Plot the accelerometer data based on the selected axes
+            if self.x_var.get():
+                self.ax.plot(self.data['Timestamp'], self.data['Acc X [g]'], label='X-axis', color='red', alpha=0.6)
+            if self.y_var.get():
+                self.ax.plot(self.data['Timestamp'], self.data['Acc Y [g]'], label='Y-axis', color='black', alpha=0.5)
+            if self.z_var.get():
+                self.ax.plot(self.data['Timestamp'], self.data['Acc Z [g]'], label='Z-axis', color='blue', alpha=0.7)
+
+            # Set X and Y limits
+            if self.current_xlim:
+                self.ax.set_xlim(self.current_xlim)
+            self.ax.set_ylim(bottom, top)  # Set the Y-limits using the correct range
+
+            # Update the legend
+            self.ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+            plt.xticks(rotation=45)
+
+        self.canvas.draw_idle()  # Redraw the plot
+
         # Plot the initial data
         self.plot_data()
 
@@ -128,13 +212,21 @@ class Viewer(tk.Frame):
         }
         self.rectangles = {}
 
+        # Set Y-limits based on actual data range if they haven't been set before
+        if self.current_ylim is None:
+            self.current_ylim = [
+                self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
+                self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()
+            ]
+        bottom, top = self.current_ylim  # Use correct Y-limits from the data range
+
         # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
             color = behavior_colors.get(label.behavior, 'gray')  # Default to gray if behavior is unknown
             start_num = mdates.date2num(label.start_time)
             end_num = mdates.date2num(label.end_time)
 
-            bottom, top = self.current_ylim
+            # Ensure the rectangle spans the entire Y-axis (from bottom to top)
             rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=0.2, lw=2,
                              edgecolor=color, label=label.behavior)
 
@@ -149,15 +241,21 @@ class Viewer(tk.Frame):
         if self.z_var.get():
             self.ax.plot(self.data['Timestamp'], self.data['Acc Z [g]'], label='Z-axis', color='blue', alpha=0.7)
 
+        # Set X and Y limits
         if self.current_xlim:
             self.ax.set_xlim(self.current_xlim)
-        if self.current_ylim:
-            self.ax.set_ylim(self.current_ylim)
+        self.ax.set_ylim(bottom, top)  # Set the Y-limits using the correct range
 
         # Update the legend
         self.ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
+        self.canvas.draw_idle()  # Redraw the plot
+
+    def save_labels_to_project_config(self):
+        if self.file_entry:
+            self.file_entry.labels = self.labels
+            self.project_config.save_config()
 
     def on_mouse_move(self, event):
         if event.inaxes and self.dragging and self.selected_label:
@@ -251,6 +349,23 @@ class Viewer(tk.Frame):
                         new_label = Label(self.start_label_time, end_time, behavior)
                         self.labels.append(new_label)
                         self.user_labels_listbox.insert(tk.END, str(new_label))
+
+                        # update project config
+                        if self.project_config:
+                            # Find the corresponding FileEntry in the project config for the current data file
+                            relative_path = self.data_path.replace(self.project_config.data_root_directory, "").lstrip(
+                                '/')
+
+                            file_entry = self.project_config.find_file_by_name(relative_path)
+
+                            if file_entry:
+                                # self.file_entry.set_labels(self.labels)
+                                # Add the new label to the FileEntry in the project config
+                                file_entry.labels.append(new_label)
+
+                                # Save the updated project config
+                                self.project_config.save_config()
+
                     self.start_label_time = None
                     self.status_label.config(text="Left click to start labeling a behavior")
                 else:
@@ -281,7 +396,7 @@ class Viewer(tk.Frame):
             self.dragging = False
             self.plot_data()  # Replot to ensure all elements are updated correctly
             self.update_label_list()  # Assuming a method to update the list display of labels
-
+            self.save_labels_to_project_config()
             self.canvas.get_tk_widget().config(cursor="")
 
     def update_label_list(self):

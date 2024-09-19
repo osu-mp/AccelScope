@@ -3,8 +3,21 @@ import datetime
 
 class Label:
     def __init__(self, start_time, end_time, behavior):
-        self.start_time = datetime.datetime.fromisoformat(start_time)
-        self.end_time = datetime.datetime.fromisoformat(end_time)
+        """
+        Initialize the label with start/end times and calculate the duration.
+        The times can be either datetime or strings (when loading from file, which is converted to datetime).
+        :param start_time:
+        :param end_time:
+        :param behavior:
+        """
+        if isinstance(start_time, str):
+            self.start_time = datetime.datetime.fromisoformat(start_time)
+        else:
+            self.start_time = start_time
+        if isinstance(end_time, str):
+            self.end_time = datetime.datetime.fromisoformat(end_time)
+        else:
+            self.end_time = end_time
         self.behavior = behavior
         self.duration = self.end_time - self.start_time
 

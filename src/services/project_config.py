@@ -44,6 +44,10 @@ class FileEntry:
         file_entry.labels = [Label.from_dict(label) for label in data['labels']]
         return file_entry
 
+    def set_labels(self, labels):
+        # TODO verify labels
+        self.labels = labels
+
 class ProjectConfig:
     def __init__(self, config_path):
         self.proj_name = "TBD"
