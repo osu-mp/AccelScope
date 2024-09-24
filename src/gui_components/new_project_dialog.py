@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
-from src.services.project_config import ProjectConfig
+from models.project_config import ProjectConfig
+
 
 class NewProjectDialog(tk.Toplevel):
     def __init__(self, parent):

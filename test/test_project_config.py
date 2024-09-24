@@ -6,87 +6,54 @@ import sys
 # Add the parent directory of src to sys.path to resolve the src module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.services.project_config import ProjectConfig, Directory, FileEntry
+from models.label import Label
+from models.project_config import ProjectConfig, DirectoryEntry, FileEntry
 
 
 class TestProjectConfig(unittest.TestCase):
 	def setUp(self):
-		# Setup a path for test config file
-		self.test_config_path = Path("test_project_config.json")
-		self.project_config = ProjectConfig(self.test_config_path)
+		"""Set up some initial data for testing."""
+		self.label1 = Label("1900-01-01T05:07:10.825020+00:00", "1900-01-01T06:18:21.373460+00:00", "Stalk")
+		self.label2 = Label("1900-01-01T07:08:55.710520+00:00", "1900-01-01T08:35:05.321800+00:00", "Kill Phase 1")
 
-	def tearDown(self):
-		# Cleanup the config file after tests
-		if self.test_config_path.exists():
-			self.test_config_path.unlink()
+		self.file_entry1 = FileEntry("data/F202_2018-05-20.csv", "TODO_123", [self.label1, self.label2])
+		self.file_entry2 = FileEntry("data/F202_2018-06-18.csv", "TODO_456", [self.label1])
 
-	def test_initialization(self):
-		self.assertEqual(self.project_config.config_path, self.test_config_path)
-		self.assertIsNone(self.project_config.data_root_directory)
-		self.assertIsNotNone(self.project_config.root_directory)
+		self.directory = DirectoryEntry("F202", [self.file_entry1, self.file_entry2])
+		self.project = ProjectConfig("Cougars", "D:/OSU/AccelScopeDemo/", [self.directory])
 
-	def test_save_config(self):
-		# Setting up test data
-		self.project_config.data_root_directory = "/test/path"
-		# Save the config
-		self.project_config.save_config()
-		# Check if the file is created and contents are correct
-		self.assertTrue(self.test_config_path.exists())
-		with open(self.test_config_path, 'r') as file:
-			data = json.load(file)
-			self.assertEqual(data['data_root_directory'], "/test/path")
+	def test_find_file_by_id(self):
+		"""Test finding files by id."""
+		found_file = self.project.find_file_by_id("TODO_123")
+		self.assertIsNotNone(found_file)
+		self.assertEqual(found_file.file_id, "TODO_123")
+		self.assertEqual(found_file.path, "data/F202_2018-05-20.csv")
 
-	def test_load_config(self):
-		# Create a config file to load
-		with open(self.test_config_path, 'w') as file:
-			json.dump({
-				"data_root_directory": "/loaded/path",
-				"root_directory": {"name": "Root", "entries": []}
-			}, file)
+		not_found_file = self.project.find_file_by_id("NON_EXISTENT")
+		self.assertIsNone(not_found_file)
 
-		# Load the config
-		self.project_config.load_config()
-		self.assertEqual(self.project_config.data_root_directory, "/loaded/path")
+	def test_add_directory(self):
+		"""Test adding a new directory."""
+		self.project.add_directory("F202", "M201")
+		parent_dir = self.project.find_directory_by_path("F202")
+		self.assertEqual(len(parent_dir.entries), 3)  # Added new directory
+		new_dir = self.project.find_directory_by_path("F202/M201")
+		self.assertIsNotNone(new_dir)
+		self.assertEqual(new_dir.name, "M201")
 
-	def test_nonexistent_file_load(self):
-		# Ensure no config file exists
-		if self.test_config_path.exists():
-			self.test_config_path.unlink()
+	def test_to_dict(self):
+		"""Test converting ProjectConfig to a dictionary."""
+		project_dict = self.project.to_dict()
+		self.assertEqual(project_dict['proj_name'], "Cougars")
+		self.assertEqual(len(project_dict['entries'][0]['entries']), 2)  # 2 FileEntries
 
-		self.project_config.load_config()
-		self.assertIsNone(self.project_config.data_root_directory)  # Assuming default is None
-
-	def test_nested_directory_structure(self):
-		# Set up the nested directory structure
-		root = Directory("Root")
-		m202 = Directory("M202")
-		walking = Directory("Walking")
-		m202.entries.append(FileEntry("event1.csv"))
-		m202.entries.append(FileEntry("event2.csv"))
-		walking.entries.append(FileEntry("event3.csv"))
-		m202.entries.append(walking)
-		f201 = Directory("F201")
-		f201.entries.append(FileEntry("event4.csv"))
-		root.entries.append(m202)
-		root.entries.append(f201)
-
-		self.project_config.root_directory = root
-		self.project_config.data_root_directory = "/path/to/data/root"
-
-		# Save the config
-		self.project_config.save_config()
-
-		# Load the config
-		loaded_config = ProjectConfig(self.test_config_path)
-		loaded_config.load_config()
-
-		# Verify that the loaded config matches the original
-		self.assertEqual(loaded_config.data_root_directory, self.project_config.data_root_directory)
-		self.assertEqual(len(loaded_config.root_directory.entries), 2)  # M202 and F201
-		m202_loaded = loaded_config.root_directory.entries[0]
-		self.assertEqual(m202_loaded.name, "M202")
-		self.assertIsInstance(m202_loaded.entries[-1], Directory)  # The Walking directory
-		self.assertEqual(m202_loaded.entries[-1].entries[0].path, "event3.csv")  # The file in Walking directory
+	def test_from_dict(self):
+		"""Test creating ProjectConfig from a dictionary."""
+		project_dict = self.project.to_dict()
+		loaded_project = ProjectConfig.from_dict(project_dict)
+		self.assertEqual(loaded_project.proj_name, "Cougars")
+		self.assertEqual(len(loaded_project.entries), 1)
+		self.assertEqual(len(loaded_project.entries[0].entries), 2)
 
 
 if __name__ == '__main__':

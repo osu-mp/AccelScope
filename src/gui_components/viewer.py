@@ -1,3 +1,5 @@
+import copy
+import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -25,9 +27,10 @@ class BehaviorDialog(simpledialog.Dialog):      # TODO: move out of this file
 
 
 class Viewer(tk.Frame):
-    def __init__(self, parent, status_bar, **kwargs):
+    def __init__(self, parent, config_manager, **kwargs):
         super().__init__(parent, **kwargs)
-        self.status_bar = status_bar
+        self.parent = parent
+        self.config_manager = config_manager
         self.data_path = None
         self.data = None
         self.labels = []
@@ -42,7 +45,7 @@ class Viewer(tk.Frame):
 
 
     def setup_viewer(self):
-        self.status_bar.set("Please load a CSV from the Project Browser")
+        self.parent.set_status("Ready to load a CSV from the Project Browser")
 
         # Setup for the viewer (figure, canvas, etc.)
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
@@ -62,8 +65,8 @@ class Viewer(tk.Frame):
         self.time_label.pack(pady=10)
 
         # Status label display
-        self.status_label = tk.Label(self.control_frame, text="Left click to start labeling a behavior")
-        self.status_label.pack(pady=10)
+        # self.status_label = tk.Label(self.control_frame, text="Left click to start labeling a behavior")
+        # self.status_label.pack(pady=10)
 
         # Checkboxes for axis control
         self.x_var = tk.BooleanVar(value=True)
@@ -88,11 +91,16 @@ class Viewer(tk.Frame):
             #
             # self.file_entry = self.project_config.find_file_by_name(relative_path)
 
-    def load_data(self, file_path):
+    def load_file_entry(self, file_entry):
+        file_path = self.config_manager.get_file_path(file_entry)
+
+        self.parent.set_status(f"Loading {file_entry.path}")
+        logging.info(f"load_file_entry: {file_entry.path}, {file_entry.labels=}")
         # Clear previous data
         self.data_path = file_path
         self.ax.clear()
         self.labels.clear()  # Clear existing labels
+        self.file_entry = copy.deepcopy(file_entry)
 
         # Load the new CSV file and parse data
         data_parser = AccelDataParser(file_path)
@@ -100,19 +108,24 @@ class Viewer(tk.Frame):
 
         if self.data is not None:
             # Find the corresponding file entry in the project config for this file
-            relative_path = file_path.replace(self.project_config.data_root_directory, "").lstrip('/')
-            self.file_entry = self.project_config.find_file_by_name(relative_path)
+            # relative_path = file_path.replace(self.project_config.data_root_directory, "").lstrip('/')
+            # self.file_entry = self.project_config.find_file_by_name(relative_path)
+            # self.file_entry = self.config_manager.get_file_entry(relative_path)
 
-            # If there are labels in the project config for this file, load them
+            # Reload the labels even if the file is opened again
+            logging.info(f"    data: {self.file_entry=}, {self.file_entry.labels}")
             if self.file_entry and self.file_entry.labels:
-                self.labels = self.file_entry.labels
+                self.labels = self.file_entry.labels  # Repopulate the labels
+                print(f"{self.labels=}")
                 self.update_label_list()  # Update the label listbox
+            else:
+                logging.info("No labels - WTF")
 
             self.prepare_plot()
             self.set_initial_limits()
 
         # Update the status bar with the name of the loaded file
-        self.status_bar.set(f"Viewing: {file_path}")
+        self.parent.set_status(f"Viewing: {file_path}")
 
 
     def get_data_path(self):
@@ -367,16 +380,16 @@ class Viewer(tk.Frame):
                                 self.project_config.save_config()
 
                     self.start_label_time = None
-                    self.status_label.config(text="Left click to start labeling a behavior")
+                    self.parent.set_status("Left click to start labeling a behavior")
                 else:
                     # Start of labeling
                     self.start_label_time = mdates.num2date(event.xdata)
-                    self.status_label.config(text="Left click to label end of behavior or right click to cancel")
+                    self.parent.set_status("Left click to label end of behavior or right click to cancel")
             elif event.button == 3:  # Right click
                 # Cancel labeling
                 if self.start_label_time:
                     self.start_label_time = None
-                    self.status_label.config(text="Left click to start labeling a behavior")
+                    self.parent.set_status("Left click to start labeling a behavior")
 
             self.update_plot()
             self.current_xlim = self.ax.get_xlim()  # Store limits after interaction

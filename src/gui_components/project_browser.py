@@ -1,13 +1,15 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog
 
-from services.project_config import Directory, FileEntry
+from models.project_config import DirectoryEntry, FileEntry
 
 
 class ProjectBrowser(tk.Frame):
-    def __init__(self, parent, project_config, **kwargs):
+    def __init__(self, parent, project_config, config_manager, **kwargs):
         super().__init__(parent, **kwargs)
+        self.parent = parent
         self.project_config = project_config
+        self.config_manager = config_manager
 
         # Add the title label with no padding and specific style
         self.title_label = tk.Label(self, text="Project Browser", font=("Helvetica", 10))
@@ -89,39 +91,39 @@ class ProjectBrowser(tk.Frame):
         self.root_node = self.tree.insert('', 'end', text=self.project_config.proj_name, open=True)
 
         # Recursively add all directories and files
-        self._populate_tree(self.root_node, self.project_config.root_directory)
+        for entry in self.project_config.entries:
+            self._populate_tree(self.root_node, entry)
 
-    def _populate_tree(self, parent_node, directory):
+    def _populate_tree(self, parent_node, entry):
         """
-        Recursively populates the tree view with the given directory structure.
+        Recursively populates the tree view with the given directory structure or file entry.
         Args:
             parent_node: The tree node under which the entries will be added.
-            directory: The Directory instance to be populated in the tree.
+            entry: A DirectoryEntry or FileEntry instance to be added to the tree.
         """
-        for entry in directory.entries:
-            if isinstance(entry, Directory):
-                # Add a directory node
-                dir_node = self.tree.insert(parent_node, 'end', text=entry.name, open=True)
-                # Recursively populate its children
-                self._populate_tree(dir_node, entry)
-            elif isinstance(entry, FileEntry):
-                # Add a file node
-                self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1])
+        if isinstance(entry, DirectoryEntry):
+            # Add a directory node
+            dir_node = self.tree.insert(parent_node, 'end', text=entry.name, open=True)
+            # Recursively populate its children
+            for child_entry in entry.entries:
+                self._populate_tree(dir_node, child_entry)
+        elif isinstance(entry, FileEntry):
+            # use the file's id as a hidden value for easy lookup later
+            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.file_id))
 
     def on_double_click(self, event):
         """Handle double-click on a tree item"""
         selected_item = self.tree.selection()[0]
-        file_name = self.tree.item(selected_item, 'text')
+        item_values = self.tree.item(selected_item, 'values')
 
-        # Get the full path from the ProjectConfig by searching the directory structure
-        full_path = self.get_full_path(selected_item)
+        if item_values:
+            file_id = item_values[0]
+            file_entry = self.config_manager.get_file_entry(file_id)
 
-        # Find the actual file entry in the ProjectConfig
-        file_entry = self.project_config.find_file_by_name(file_name)
+            if file_entry:
+                self.parent.open_file(file_entry)
+                # Combine the data root directory with the relative path stored in FileEntry
+                full_file_path = f"{self.project_config.data_root_directory}/{file_entry.path}"
 
-        if file_entry:
-            # Combine the data root directory with the relative path stored in FileEntry
-            full_file_path = f"{self.project_config.data_root_directory}/{file_entry.path}"
-
-            # Inform the main application to load the file in the viewer
-            self.master.load_csv(full_file_path)
+                # Inform the main application to load the file in the viewer
+                # self.master.load_csv(full_file_path)
