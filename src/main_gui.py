@@ -34,6 +34,9 @@ class MainApplication(tk.Tk):
         # Optionally load the project
         # self.open_project()
 
+        # attempt to open the last CSV the user had open during last run
+        self.config_manager.try_to_load_last_csv()
+
     def setup_gui(self):
         """Sets up the entire user interface."""
 
@@ -198,6 +201,10 @@ class MainApplication(tk.Tk):
         self.viewer.load_file_entry(file_entry)
         csv_name = self.viewer.get_data_path()
         self.status_bar.set(f"Loaded CSV: {csv_name}")
+
+        # Save the project and the file_id of the currently opened file
+        self.config_manager.save_last_project(self.config_manager.last_project,
+                                              file_entry.file_id)
 
     def save_file(self):
         pass  # Implement file save logic

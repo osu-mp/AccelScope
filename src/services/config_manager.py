@@ -16,13 +16,15 @@ class ConfigManager:
         self.load_last_project()
 
     def load_last_project(self):
-        """Load the last opened project if available."""
         if os.path.exists(self.LAST_PROJECT_FILE):
             try:
                 with open(self.LAST_PROJECT_FILE, 'r') as f:
-                    self.active_project = json.load(f).get("active_project", "")
-                    if self.active_project and os.path.exists(self.active_project):
-                        self.load_project(self.active_project)
+                    last_project_data = json.load(f)
+                    self.last_project = last_project_data.get("last_opened_project", "")
+                    self.last_file_id = last_project_data.get("last_opened_file_id", None)
+
+                    if self.last_project and os.path.exists(self.last_project):
+                        self.load_project(self.last_project)
                     else:
                         self.prompt_for_project()
             except json.JSONDecodeError:
@@ -30,6 +32,15 @@ class ConfigManager:
         else:
             self.prompt_for_project()
 
+    def try_to_load_last_csv(self):
+        if self.last_file_id:
+            file_entry = self.current_project_config.find_file_by_id(self.last_file_id)
+            if file_entry:
+                self.app_parent.viewer.load_file_entry(file_entry)
+            else:
+                logging.warning(f"File with ID {self.last_file_id} not found.")
+        else:
+            logging.info("No last file ID found.")
     def prompt_for_project(self):
         """Prompt the user to load or create a new project (e.g., via a file dialog)."""
         response = messagebox.askyesno("Open Project", "Do you want to open an existing project?")
@@ -49,11 +60,14 @@ class ConfigManager:
                 self.active_project = new_project_dialog.location_entry.get()
                 self.load_project(self.active_project)
 
-    def save_last_project(self):
-        """Save the path of the currently active project to the last_project.json file."""
-        if self.active_project:
-            with open(self.LAST_PROJECT_FILE, 'w') as f:
-                json.dump({"active_project": self.active_project}, f)
+    def save_last_project(self, project_path, file_id=None):
+        """Save the last opened project path and file_id to a JSON file."""
+        last_project_data = {
+            "last_opened_project": project_path,
+            "last_opened_file_id": file_id  # Save file_id if available
+        }
+        with open(self.LAST_PROJECT_FILE, 'w') as f:
+            json.dump(last_project_data, f, indent=4)
 
     def save_current_project(self):
         """Save the current project configuration to the active project file."""
@@ -67,7 +81,6 @@ class ConfigManager:
             with open(active_project, 'r') as f:
                 project_data = json.load(f)
                 self.current_project_config = ProjectConfig.from_dict(project_data)
-                self.save_last_project()  # Save the path of the current project
             logging.info(f"Loaded project: {active_project}")
         except Exception as e:
             logging.error(f"Error loading project: {e}")
