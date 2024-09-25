@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from tkinter import filedialog, messagebox
 
@@ -14,126 +15,85 @@ class ConfigManager:
         self.current_project_config = None
         self.load_last_project()
 
-        # self.json_file_path = json_file_path
-        # self.project_config = None
-
     def load_last_project(self):
+        """Load the last opened project if available."""
         if os.path.exists(self.LAST_PROJECT_FILE):
             try:
                 with open(self.LAST_PROJECT_FILE, 'r') as f:
-                    last_project = json.load(f).get("last_opened_project", "")
-                    if last_project and os.path.exists(last_project):
-                        self.load_project(last_project)
+                    self.active_project = json.load(f).get("active_project", "")
+                    if self.active_project and os.path.exists(self.active_project):
+                        self.load_project(self.active_project)
                     else:
                         self.prompt_for_project()
             except json.JSONDecodeError:
-                self.prompt_for_project()  # Invalid JSON, prompt for new project
+                self.prompt_for_project()  # Invalid JSON, prompt for a new project
         else:
             self.prompt_for_project()
 
     def prompt_for_project(self):
         """Prompt the user to load or create a new project (e.g., via a file dialog)."""
-        # Here, you would include logic to show a file dialog
         response = messagebox.askyesno("Open Project", "Do you want to open an existing project?")
         if response:
-            # Open file dialog to select an existing project JSON file
-            project_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")], title="Open Project File")
-            if project_path:
-                self.load_project(project_path)
+            self.active_project = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")],
+                                                             title="Open Project File")
+            if self.active_project:
+                self.load_project(self.active_project)
         else:
-            # Open the NewProjectDialog to create a new project
+            # Create a new project using NewProjectDialog
             new_project_dialog = NewProjectDialog(parent=self.app_parent)
             new_project_dialog.grab_set()
-            self.app_parent.wait_window(new_project_dialog)  # Wait for the dialog to close
+            self.app_parent.wait_window(new_project_dialog)
 
-            # If a new project was created, load it
+            # Load the new project if one was created
             if new_project_dialog.location_entry.get():
-                project_path = new_project_dialog.location_entry.get()
-                self.load_project(project_path)
+                self.active_project = new_project_dialog.location_entry.get()
+                self.load_project(self.active_project)
 
-    def save_last_project(self, project_path):
-        """Save the last opened project path to a JSON file."""
-        with open(self.LAST_PROJECT_FILE, 'w') as f:
-            json.dump({"last_opened_project": project_path}, f)
+    def save_last_project(self):
+        """Save the path of the currently active project to the last_project.json file."""
+        if self.active_project:
+            with open(self.LAST_PROJECT_FILE, 'w') as f:
+                json.dump({"active_project": self.active_project}, f)
 
     def save_current_project(self):
-        """Save the current project config back to its JSON file."""
-        if self.current_project_config:
-            project_path = self.current_project_config.project_path
-            with open(project_path, 'w') as f:
-                json.dump(self.current_project_config.to_dict(), f)
+        """Save the current project configuration to the active project file."""
+        if self.current_project_config and self.active_project:
+            with open(self.active_project, 'w') as f:
+                json.dump(self.current_project_config.to_dict(), f, indent=4)
 
-    def load_project(self, project_path):
-        """Loads the project config from the given path and sets it as the current config."""
+    def load_project(self, active_project):
+        """Loads the project config from the given path and sets it as the active project."""
         try:
-            with open(project_path, 'r') as f:
+            with open(active_project, 'r') as f:
                 project_data = json.load(f)
                 self.current_project_config = ProjectConfig.from_dict(project_data)
-                self.save_last_project(project_path)
-            self.project_config = ProjectConfig.from_dict(project_data)
+                self.save_last_project()  # Save the path of the current project
+            logging.info(f"Loaded project: {active_project}")
         except Exception as e:
-            print(f"Error loading project: {e}")
+            logging.error(f"Error loading project: {e}")
 
     def get_file_entry(self, file_id):
-        """Retrieve the file entry, ensuring it's only looked up once."""
-        if self.project_config:
-            return self.project_config.find_file_by_id(file_id)
+        """Retrieve the file entry by file ID."""
+        if self.current_project_config:
+            return self.current_project_config.find_file_by_id(file_id)
         return None
 
-    def load_config(self):
-        """Loads the project configuration from the specified JSON file."""
-        with open(self.json_file_path, 'r') as f:
-            data = json.load(f)
-            root_directory = self._build_directory(data['root_directory'])
-            self.project_config = ProjectConfig(data['proj_name'], data['data_root_directory'], root_directory)
-
-    def _build_directory(self, directory_data):
-        """Recursively builds a Directory instance from JSON data."""
-        directory = DirectoryEntry(directory_data['name'])
-        for entry in directory_data['entries']:
-            if 'path' in entry:
-                file_entry = FileEntry(entry['path'], entry.get('labels', []))
-                directory.entries.append(file_entry)
-            else:
-                sub_directory = self._build_directory(entry)
-                directory.entries.append(sub_directory)
-        return directory
-
-    def save_config(self):
-        """Saves the current project configuration to the JSON file."""
-        with open(self.json_file_path, 'w') as f:
-            json.dump(self._to_dict(self.project_config), f, indent=4, default=str)
-
-    def _to_dict(self, project_config):
-        """Converts the ProjectConfig and its directories/files to a dictionary."""
-        return {
-            'proj_name': project_config.proj_name,
-            'data_root_directory': project_config.data_root_directory,
-            'root_directory': self._directory_to_dict(project_config.root_directory)
-        }
-
-    def _directory_to_dict(self, directory):
-        """Recursively converts a Directory instance to a dictionary."""
-        dir_dict = {'name': directory.name, 'entries': []}
-        for entry in directory.entries:
-            if isinstance(entry, FileEntry):
-                dir_dict['entries'].append({'path': entry.path, 'labels': entry.labels})
-            elif isinstance(entry, DirectoryEntry):
-                dir_dict['entries'].append(self._directory_to_dict(entry))
-        return dir_dict
-
-    def get_project_config(self):
-        """Returns the currently loaded project configuration."""
-        return self.project_config
+    def update_labels(self, file_id, labels):
+        """For the given file id, update the labels in the file and save the changes."""
+        file_entry = self.current_project_config.find_file_by_id(file_id)
+        if file_entry:
+            file_entry.set_labels(labels)
+            self.save_current_project()
+            logging.info(f"Updated labels for file with ID {file_id}.")
+        else:
+            logging.error(f"File with ID {file_id} not found.")
 
     def get_file_path(self, file_entry):
+        """Get the full file path for the given file entry."""
+        return os.path.join(self.current_project_config.data_root_directory, file_entry.path)
 
-        file_path = os.path.join(self.project_config.data_root_directory, file_entry.path)
-        return file_path
-
-    def update_labels(self, file_name, new_labels):
-        """Updates the labels for a specific file and saves the updated config."""
-        file_entry = self.project_config.find_file_by_name(file_name)
-        if file_entry:
-            file_entry.labels = new_labels
-            self.save_config()  # Save after modifying labels
+    def get_project_config(self):
+        if self.current_project_config:
+            return self.current_project_config
+        else:
+            logging.warn("No active project config")

@@ -266,9 +266,15 @@ class Viewer(tk.Frame):
         self.canvas.draw_idle()  # Redraw the plot
 
     def save_labels_to_project_config(self):
+        """
+        Save all the labels for the active file to the project config
+        This should be called anytime the labels are changed.
+        :return:
+        """
         if self.file_entry:
-            self.file_entry.labels = self.labels
-            self.project_config.save_config()
+            self.config_manager.update_labels(self.file_entry.file_id, self.labels)
+        else:
+            logging.warning("Unable to save labels to project config as no file entry found")
 
     def on_mouse_move(self, event):
         if event.inaxes and self.dragging and self.selected_label:
