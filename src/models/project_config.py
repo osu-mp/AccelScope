@@ -1,70 +1,47 @@
 import logging
-from models.label import Label
-
-
-class DirectoryEntry:
-    def __init__(self, name, entries=None):
-        self.name = name
-        self.entries = entries or []  # This will contain both DirectoryEntry and FileEntry instances
-
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "entries": [entry.to_dict() for entry in self.entries]
-        }
-
-    @staticmethod
-    def from_dict(data):
-        entries = []
-        for entry in data.get("entries", []):
-            if "path" in entry:
-                entries.append(FileEntry.from_dict(entry))
-            else:
-                entries.append(DirectoryEntry.from_dict(entry))
-        return DirectoryEntry(data["name"], entries)
-
-
-class FileEntry:
-    def __init__(self, path, file_id, labels=None):
-        self.path = path
-        self.file_id = file_id
-        self.labels = labels or []
-
-    def to_dict(self):
-        return {
-            "path": self.path,
-            "id": self.file_id,
-            "labels": [label.to_dict() for label in self.labels]
-        }
-
-    @staticmethod
-    def from_dict(data):
-        labels = [Label.from_dict(label) for label in data.get("labels", [])]
-        return FileEntry(data["path"], data["id"], labels)
-
-    def set_labels(self, labels):
-        self.labels = labels
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
+from models.data_display import DataDisplay
+from models.label_display import LabelDisplay
 
 
 class ProjectConfig:
-    def __init__(self, proj_name, data_root_directory, entries=None):
+    """
+    High level structure of the project config. Contains a user defined directory structure
+    of dirs to organize the input CSVs. Each FileEntry contains a unique ID so that the same
+    file can be listed multiple times in the same project, with different labels attached to each file.
+    For example, the same day of activity could contain kill behavior and walking behavior (via trail-cam)
+    and have annotations for each.
+    """
+    def __init__(self, proj_name, data_root_directory, entries=None, data_display=None, label_display=None):
         self.proj_name = proj_name
         self.data_root_directory = data_root_directory
         self.entries = entries or []
+        self.data_display = data_display or []
+        self.label_display = label_display or []
 
     def to_dict(self):
         """Convert ProjectConfig instance back to a dictionary."""
         return {
             'proj_name': self.proj_name,
             'data_root_directory': self.data_root_directory,
-            'entries': [entry.to_dict() for entry in self.entries]
+            'entries': [entry.to_dict() for entry in self.entries],
+            'data_display': [dd.to_dict() for dd in self.data_display],
+            'label_display': [ld.to_dict() for ld in self.label_display]
         }
 
     @staticmethod
     def from_dict(data):
-        logging.debug(f"Creating ProjectConfig from dict: {data}")
         entries = [DirectoryEntry.from_dict(entry) for entry in data.get("entries", [])]
-        return ProjectConfig(data["proj_name"], data["data_root_directory"], entries)
+        data_display = [DataDisplay.from_dict(dd) for dd in data.get("data_display", [])]
+        label_display = [LabelDisplay.from_dict(ld) for ld in data.get("label_display", [])]
+        return ProjectConfig(
+            proj_name=data["proj_name"],
+            data_root_directory=data["data_root_directory"],
+            entries=entries,
+            data_display=data_display,
+            label_display=label_display
+        )
 
     def add_directory(self, parent_full_path, new_dir_name):
         # Find the parent directory using the full path
@@ -106,6 +83,8 @@ class ProjectConfig:
     def add_file(self, parent_full_path, file_entry):
         logging.debug(f"Adding file {file_entry.path} under path {parent_full_path}")
         parent_dir = self.find_directory_by_path(parent_full_path)
+
+        # TODO: ensure file_id of file_entry is a unique ID
 
         if parent_dir:
             parent_dir.append(file_entry)

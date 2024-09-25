@@ -6,8 +6,10 @@ import sys
 # Add the parent directory of src to sys.path to resolve the src module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
 from models.label import Label
-from models.project_config import ProjectConfig, DirectoryEntry, FileEntry
+from models.project_config import ProjectConfig
 
 
 class TestProjectConfig(unittest.TestCase):
