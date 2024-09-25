@@ -18,6 +18,16 @@
                             "start_time": "1900-01-01T07:08:55.710520+00:00",
                             "end_time": "1900-01-01T11:48:04.132360+00:00",
                             "behavior": "Kill Phase 1"
+                        },
+                        {
+                            "start_time": "1900-01-01T12:16:09.745980+00:00",
+                            "end_time": "1900-01-01T19:47:31.938220+00:00",
+                            "behavior": "Walk"
+                        },
+                        {
+                            "start_time": "1900-01-01T20:30:36.545780+00:00",
+                            "end_time": "1900-01-01T21:13:41.153340+00:00",
+                            "behavior": "Stalk"
                         }
                     ]
                 },
@@ -70,7 +80,7 @@
     "label_display": [
         {
             "display_name": "Stalk",
-            "color": "orange",
+            "color": "green",
             "alpha": 0.2,
             "output_value": "STALK"
         },

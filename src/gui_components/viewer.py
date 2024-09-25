@@ -9,21 +9,7 @@ from tkinter import simpledialog, ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from accel_data_parser import AccelDataParser
 from models.label import Label
-
-
-
-class BehaviorDialog(simpledialog.Dialog):      # TODO: move out of this file
-    def body(self, master):
-        tk.Label(master, text="Select Behavior:").grid(row=0)
-        self.var = tk.StringVar(master)
-        self.var.set("Stalk")  # default value
-        self.options = ['Stalk', 'Kill Phase 1', 'Kill Phase 2', 'Feeding', 'Walking']
-        self.dropdown = ttk.Combobox(master, textvariable=self.var, values=self.options, state='readonly')
-        self.dropdown.grid(row=0, column=1)
-        return self.dropdown  # return the dropdown as the initial focus widget
-
-    def apply(self):
-        self.result = self.var.get()  # set the result from the dialog to the selected option
+from gui_components.behavior_selection_dialog import BehaviorSelectionDialog
 
 
 class Viewer(tk.Frame):
@@ -121,12 +107,10 @@ class Viewer(tk.Frame):
             else:
                 logging.info("No labels - WTF")
 
-            self.prepare_plot()
-            self.set_initial_limits()
+            self.setup_mouse_events()
 
         # Update the status bar with the name of the loaded file
         self.parent.set_status(f"Viewing: {file_path}")
-
 
     def get_data_path(self):
         if self.data_path:
@@ -134,75 +118,7 @@ class Viewer(tk.Frame):
             return self.data_path.split('/')[-1].replace('.csv', '')
         return None
 
-    # Initialize plot limits after data is loaded
-    def set_initial_limits(self):
-        self.current_xlim = [self.data['Timestamp'].min(), self.data['Timestamp'].max()]
-        self.ax.set_xlim(self.current_xlim)
-        self.ax.set_ylim([self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
-                          self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()])
-        self.canvas.draw()
-
-    def prepare_plot(self):
-        if self.data is None:
-            # Display message when no data is loaded
-            self.ax.text(0.5, 0.5, 'Please load a CSV file from the Project Browser',
-                         horizontalalignment='center', verticalalignment='center',
-                         transform=self.ax.transAxes, fontsize=12, color='gray')
-        else:
-            # Clear the plot to remove any previous content
-            self.ax.clear()
-
-            # Set Y-limits based on actual data range if they haven't been set before
-            if self.current_ylim is None:
-                self.current_ylim = [
-                    self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
-                    self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()
-                ]
-            bottom, top = self.current_ylim  # Use correct Y-limits from the data range
-
-            # Define colors for each behavior
-            behavior_colors = {
-                'Stalk': 'orange',
-                'Kill Phase 1': 'purple',
-                'Kill Phase 2': 'green',
-                'Feeding': 'blue',
-                'Walking': 'red'
-            }
-            self.rectangles = {}
-
-            # Plot the labeled sections as semi-transparent boxes
-            for label in self.labels:
-                color = behavior_colors.get(label.behavior, 'gray')  # Default to gray if behavior is unknown
-                start_num = mdates.date2num(label.start_time)
-                end_num = mdates.date2num(label.end_time)
-
-                # Ensure the rectangle spans the entire Y-axis (from bottom to top)
-                rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=0.2, lw=2,
-                                 edgecolor=color, label=label.behavior)
-
-                self.ax.add_patch(rect)
-                self.rectangles[label] = rect
-
-            # Plot the accelerometer data based on the selected axes
-            if self.x_var.get():
-                self.ax.plot(self.data['Timestamp'], self.data['Acc X [g]'], label='X-axis', color='red', alpha=0.6)
-            if self.y_var.get():
-                self.ax.plot(self.data['Timestamp'], self.data['Acc Y [g]'], label='Y-axis', color='black', alpha=0.5)
-            if self.z_var.get():
-                self.ax.plot(self.data['Timestamp'], self.data['Acc Z [g]'], label='Z-axis', color='blue', alpha=0.7)
-
-            # Set X and Y limits
-            if self.current_xlim:
-                self.ax.set_xlim(self.current_xlim)
-            self.ax.set_ylim(bottom, top)  # Set the Y-limits using the correct range
-
-            # Update the legend
-            self.ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-            plt.xticks(rotation=45)
-
-        self.canvas.draw_idle()  # Redraw the plot
-
+    def setup_mouse_events(self):
         # Plot the initial data
         self.plot_data()
 
@@ -215,55 +131,67 @@ class Viewer(tk.Frame):
     def plot_data(self):
         self.ax.clear()
 
-        # Define colors for each behavior
-        behavior_colors = {
-            'Stalk': 'orange',
-            'Kill Phase 1': 'purple',
-            'Kill Phase 2': 'green',
-            'Feeding': 'blue',
-            'Walking': 'red'
-        }
         self.rectangles = {}
 
         # Set Y-limits based on actual data range if they haven't been set before
-        if self.current_ylim is None:
-            self.current_ylim = [
-                self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].min().min(),
-                self.data[['Acc X [g]', 'Acc Y [g]', 'Acc Z [g]']].max().max()
-            ]
+        self.set_y_limits()
         bottom, top = self.current_ylim  # Use correct Y-limits from the data range
 
         # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
-            color = behavior_colors.get(label.behavior, 'gray')  # Default to gray if behavior is unknown
+            # Dynamically fetch the label display settings from the project config
+            label_display = self.project_config.get_label_display(label.behavior)
+
+            if label_display:
+                color = label_display.color  # Use the color from the config
+                alpha = label_display.alpha  # Use the alpha value from the config
+            else:
+                color = 'gray'  # Default to gray if the behavior is unknown
+                alpha = 0.2  # Default transparency
+
             start_num = mdates.date2num(label.start_time)
             end_num = mdates.date2num(label.end_time)
 
             # Ensure the rectangle spans the entire Y-axis (from bottom to top)
-            rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=0.2, lw=2,
-                             edgecolor=color, label=label.behavior)
+            rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=alpha, lw=2,
+                             edgecolor=color)
 
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
 
-        # Plot the accelerometer data based on the selected axes
-        if self.x_var.get():
-            self.ax.plot(self.data['Timestamp'], self.data['Acc X [g]'], label='X-axis', color='red', alpha=0.6)
-        if self.y_var.get():
-            self.ax.plot(self.data['Timestamp'], self.data['Acc Y [g]'], label='Y-axis', color='black', alpha=0.5)
-        if self.z_var.get():
-            self.ax.plot(self.data['Timestamp'], self.data['Acc Z [g]'], label='Z-axis', color='blue', alpha=0.7)
+        # TODO: control whether or not the x/y/z are displayed via controls in the info pane
+        # Plot the accelerometer data based on the dynamic data_display configuration
+        for display in self.project_config.data_display:
+            input_name = display.input_name  # Access the object attribute directly
+            color = display.color  # The color to plot the data
+            alpha = display.alpha  # The transparency of the plot
+            self.ax.plot(self.data['Timestamp'], self.data[input_name], color=color, alpha=alpha)
 
         # Set X and Y limits
         if self.current_xlim:
             self.ax.set_xlim(self.current_xlim)
         self.ax.set_ylim(bottom, top)  # Set the Y-limits using the correct range
 
-        # Update the legend
-        self.ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
         self.canvas.draw_idle()  # Redraw the plot
+
+    def set_y_limits(self):
+        # Dynamically set Y-limits based on the min and max of the configured data axes
+        y_min, y_max = None, None
+
+        # Iterate over the data_display config to determine min and max values
+        for display in self.project_config.data_display:
+            input_name = display.input_name  # Access the attribute directly
+            current_min = self.data[input_name].min()
+            current_max = self.data[input_name].max()
+
+            if y_min is None or current_min < y_min:
+                y_min = current_min
+            if y_max is None or current_max > y_max:
+                y_max = current_max
+
+        self.current_ylim = [y_min, y_max]
 
     def save_labels_to_project_config(self):
         """
@@ -370,20 +298,7 @@ class Viewer(tk.Frame):
                         self.user_labels_listbox.insert(tk.END, str(new_label))
 
                         # update project config
-                        if self.project_config:
-                            # Find the corresponding FileEntry in the project config for the current data file
-                            relative_path = self.data_path.replace(self.project_config.data_root_directory, "").lstrip(
-                                '/')
-
-                            file_entry = self.project_config.find_file_by_name(relative_path)
-
-                            if file_entry:
-                                # self.file_entry.set_labels(self.labels)
-                                # Add the new label to the FileEntry in the project config
-                                file_entry.labels.append(new_label)
-
-                                # Save the updated project config
-                                self.project_config.save_config()
+                        self.save_labels_to_project_config()
 
                     self.start_label_time = None
                     self.parent.set_status("Left click to start labeling a behavior")
@@ -427,8 +342,15 @@ class Viewer(tk.Frame):
             self.user_labels_listbox.insert(tk.END, str(label))
 
     def prompt_for_behavior(self):
+        # Retrieve behaviors from the project config
+        behaviors = [label.display_name for label in self.project_config.label_display]
+
+        # If there are no behaviors defined, handle it accordingly
+        if not behaviors:
+            return None
+
         # Prompt the user to select a behavior
-        dialog = BehaviorDialog(None, title="Select Behavior")
+        dialog = BehaviorSelectionDialog(self, behaviors, title="Select Behavior")
         return dialog.result
 
 

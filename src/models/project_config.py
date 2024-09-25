@@ -108,3 +108,10 @@ class ProjectConfig:
                     return found
         logging.debug(f"File with id {file_id} not found.")
         return None
+
+    def get_label_display(self, behavior):
+        """Retrieve the LabelDisplay settings for the given behavior."""
+        for display in self.label_display:
+            if display.display_name == behavior:
+                return display
+        return None  # Return None if no matching behavior is found
