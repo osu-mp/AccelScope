@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import Menu
 
+from gui_components.info_pane import InfoPane
 from gui_components.project_browser import ProjectBrowser
 from gui_components.viewer import Viewer  # Make sure to have the Viewer class in viewer.py or adjust the import based on your structure
 from gui_components.status_bar import StatusBar
@@ -58,16 +59,14 @@ class MainApplication(tk.Tk):
         self.paned_window.add(self.project_browser, minsize=100)
         self.project_browser.load_project()
 
-        # Initialize the info pane first, as it needs to be passed to the viewer
-        self.info_pane = ttk.Frame(self.paned_window, width=200, relief=tk.SUNKEN)
-        info_pane_label = tk.Label(self.info_pane, text='Info Pane', bg='blue')
-        info_pane_label.pack(fill=tk.BOTH, expand=True)
-
         # Initialize the main viewer/content area as another pane (middle)
-        self.viewer = Viewer(self, config_manager=self.config_manager, width=600, relief=tk.SUNKEN)#, info_pane=self.info_pane)
+        self.viewer = Viewer(self, config_manager=self.config_manager, width=600, relief=tk.SUNKEN)
         self.paned_window.add(self.viewer, minsize=200)
         self.viewer.set_project_config(project_config)
 
+        # info pane for legend info/controls
+        self.info_pane = InfoPane(self, config_manager=self.config_manager)
+        self.paned_window.add(self.info_pane, minsize=100)
 
         # Add the info pane (right side)
         self.paned_window.add(self.info_pane, minsize=100)

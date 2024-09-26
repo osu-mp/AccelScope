@@ -17,6 +17,9 @@ class Viewer(tk.Frame):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.config_manager = config_manager
+        self.active_axes = [display.input_name for display in
+                            self.config_manager.get_project_config().data_display]  # All axes active by default
+
         self.data_path = None
         self.data = None
         self.labels = []
@@ -28,7 +31,6 @@ class Viewer(tk.Frame):
         self.project_config = None
         self.file_entry = None  # Reference to the project config's FileEntry for the loaded CSV
         self.setup_viewer()
-
 
     def setup_viewer(self):
         self.parent.set_status("Ready to load a CSV from the Project Browser")
@@ -128,6 +130,11 @@ class Viewer(tk.Frame):
         self.canvas.mpl_connect('button_press_event', self.on_click)
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
 
+    def set_active_axes(self, active_axes):
+        """Set the active axes based on user input from InfoPane."""
+        self.active_axes = active_axes
+        self.update_plot()  # Trigger a plot update whenever active axes change
+
     def plot_data(self):
         self.ax.clear()
 
@@ -162,10 +169,11 @@ class Viewer(tk.Frame):
         # TODO: control whether or not the x/y/z are displayed via controls in the info pane
         # Plot the accelerometer data based on the dynamic data_display configuration
         for display in self.project_config.data_display:
-            input_name = display.input_name  # Access the object attribute directly
-            color = display.color  # The color to plot the data
-            alpha = display.alpha  # The transparency of the plot
-            self.ax.plot(self.data['Timestamp'], self.data[input_name], color=color, alpha=alpha)
+            if display.input_name in self.active_axes:
+                input_name = display.input_name  # Access the object attribute directly
+                color = display.color  # The color to plot the data
+                alpha = display.alpha  # The transparency of the plot
+                self.ax.plot(self.data['Timestamp'], self.data[input_name], color=color, alpha=alpha)
 
         # Set X and Y limits
         if self.current_xlim:
@@ -236,7 +244,7 @@ class Viewer(tk.Frame):
 
     def update_plot(self):
         self.plot_data()
-        self.canvas.draw()
+        # self.canvas.draw()
 
     def on_scroll(self, event):
         if event.key == 'control':
