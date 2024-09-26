@@ -45,10 +45,10 @@ class ConfigManager:
         """Prompt the user to load or create a new project (e.g., via a file dialog)."""
         response = messagebox.askyesno("Open Project", "Do you want to open an existing project?")
         if response:
-            self.active_project = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")],
+            self.last_project = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")],
                                                              title="Open Project File")
-            if self.active_project:
-                self.load_project(self.active_project)
+            if self.last_project:
+                self.load_project(self.last_project)
         else:
             # Create a new project using NewProjectDialog
             new_project_dialog = NewProjectDialog(parent=self.app_parent)
@@ -57,8 +57,8 @@ class ConfigManager:
 
             # Load the new project if one was created
             if new_project_dialog.location_entry.get():
-                self.active_project = new_project_dialog.location_entry.get()
-                self.load_project(self.active_project)
+                self.last_project = new_project_dialog.location_entry.get()
+                self.load_project(self.last_project)
 
     def save_last_project(self, project_path, file_id=None):
         """Save the last opened project path and file_id to a JSON file."""
@@ -71,8 +71,8 @@ class ConfigManager:
 
     def save_current_project(self):
         """Save the current project configuration to the active project file."""
-        if self.current_project_config and self.active_project:
-            with open(self.active_project, 'w') as f:
+        if self.current_project_config and self.last_project:
+            with open(self.last_project, 'w') as f:
                 json.dump(self.current_project_config.to_dict(), f, indent=4)
 
     def load_project(self, active_project):
@@ -82,6 +82,7 @@ class ConfigManager:
                 project_data = json.load(f)
                 self.current_project_config = ProjectConfig.from_dict(project_data)
             logging.info(f"Loaded project: {active_project}")
+            self.last_project = active_project
         except Exception as e:
             logging.error(f"Error loading project: {e}")
 
@@ -110,3 +111,12 @@ class ConfigManager:
             return self.current_project_config
         else:
             logging.warn("No active project config")
+
+    def get_label_display(self, behavior):
+        """Retrieve the label display settings for a given behavior from the project config."""
+        if self.current_project_config:
+            # Iterate through the label display section of the project config to find the behavior
+            for label_display in self.current_project_config.label_display:
+                if label_display.display_name == behavior:
+                    return label_display
+        return None

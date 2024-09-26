@@ -17,6 +17,7 @@ class Viewer(tk.Frame):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.config_manager = config_manager
+        self.info_pane = None
         self.active_axes = [display.input_name for display in
                             self.config_manager.get_project_config().data_display]  # All axes active by default
 
@@ -32,6 +33,10 @@ class Viewer(tk.Frame):
         self.file_entry = None  # Reference to the project config's FileEntry for the loaded CSV
         self.setup_viewer()
 
+    def set_info_pane(self, info_pane):
+        """Sets a reference to the InfoPane instance."""
+        self.info_pane = info_pane
+
     def setup_viewer(self):
         self.parent.set_status("Ready to load a CSV from the Project Browser")
 
@@ -39,36 +44,6 @@ class Viewer(tk.Frame):
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-
-        # Right control frame for additional controls and info
-        self.control_frame = tk.Frame(self)
-        self.control_frame.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Listbox for user labels
-        self.user_labels_listbox = tk.Listbox(self.control_frame, height=10)
-        self.user_labels_listbox.pack(pady=20)
-
-        # Time label display
-        self.time_label = tk.Label(self.control_frame, text="Time: ")
-        self.time_label.pack(pady=10)
-
-        # Status label display
-        # self.status_label = tk.Label(self.control_frame, text="Left click to start labeling a behavior")
-        # self.status_label.pack(pady=10)
-
-        # Checkboxes for axis control
-        self.x_var = tk.BooleanVar(value=True)
-        self.y_var = tk.BooleanVar(value=True)
-        self.z_var = tk.BooleanVar(value=True)
-        self.x_checkbox = tk.Checkbutton(self.control_frame, text="X-axis", variable=self.x_var,
-                                         command=self.update_plot)
-        self.y_checkbox = tk.Checkbutton(self.control_frame, text="Y-axis", variable=self.y_var,
-                                         command=self.update_plot)
-        self.z_checkbox = tk.Checkbutton(self.control_frame, text="Z-axis", variable=self.z_var,
-                                         command=self.update_plot)
-        self.x_checkbox.pack(anchor=tk.W)
-        self.y_checkbox.pack(anchor=tk.W)
-        self.z_checkbox.pack(anchor=tk.W)
 
     def set_project_config(self, project_config):
         if project_config:
@@ -303,10 +278,10 @@ class Viewer(tk.Frame):
                     if behavior:
                         new_label = Label(self.start_label_time, end_time, behavior)
                         self.labels.append(new_label)
-                        self.user_labels_listbox.insert(tk.END, str(new_label))
 
                         # update project config
                         self.save_labels_to_project_config()
+                        self.update_label_list()
 
                     self.start_label_time = None
                     self.parent.set_status("Left click to start labeling a behavior")
@@ -342,12 +317,8 @@ class Viewer(tk.Frame):
             self.canvas.get_tk_widget().config(cursor="")
 
     def update_label_list(self):
-        # Clear existing entries in the listbox
-        self.user_labels_listbox.delete(0, tk.END)
-
-        # Repopulate the listbox with updated label data
-        for label in sorted(self.labels, key=lambda x: x.start_time):  # Sort labels by start time
-            self.user_labels_listbox.insert(tk.END, str(label))
+        if self.info_pane:
+            self.info_pane.update_label_durations()
 
     def prompt_for_behavior(self):
         # Retrieve behaviors from the project config

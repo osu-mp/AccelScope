@@ -71,6 +71,9 @@ class MainApplication(tk.Tk):
         # Add the info pane (right side)
         self.paned_window.add(self.info_pane, minsize=100)
 
+        # Set the reference of InfoPane in the Viewer
+        self.viewer.set_info_pane(self.info_pane)
+
     # def __init__(self):
     #     super().__init__()
     #     self.title('AccelScope - Main Application')

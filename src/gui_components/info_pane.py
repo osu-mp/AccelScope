@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
+from datetime import timedelta
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 
 
 class InfoPane(tk.Frame):
@@ -14,67 +17,101 @@ class InfoPane(tk.Frame):
         self.project_config = self.config_manager.get_project_config()
 
         self.label = tk.Label(self, text='Info Pane')
-        self.label.pack(fill=tk.BOTH, expand=True)
+        self.label.pack(fill=tk.X, pady=5)
 
-        #  Dynamically generate checkboxes for each data_display item
-        self.data_display_vars = {}  # Dictionary to hold BooleanVars for each data axis
-
+        # Dynamically generate checkboxes for each data_display item
+        self.data_display_vars = {}
         self.create_data_display_checkboxes()
 
-        # User label listbox for behaviors (this can be populated later)
-        tk.Label(self, text="Labels").pack(pady=5)
-        self.user_labels_listbox = tk.Listbox(self, height=10)
-        self.user_labels_listbox.pack(pady=5)
+        # Add separator between Axis Control and Labels
+        self.add_separator()
 
-        # Legend placeholder (this can be populated with behavior/annotation information)
-        tk.Label(self, text="Legend").pack(pady=5)
-        self.legend_frame = tk.Frame(self)
-        self.legend_frame.pack(pady=5)
+        # Create the "Labeled Actions" label only once
+        self.labeled_actions_label = tk.Label(self, text="Labeled Actions")
+        self.labeled_actions_label.pack(fill=tk.X, pady=5)
+
+        # Create the initial legend for both data display and labeled actions
+        self.create_legend()
 
     def create_data_display_checkboxes(self):
         """Dynamically creates checkboxes for each data_display item from the project config."""
-        # Create a label for the section
-        tk.Label(self, text="Axis Control").pack(pady=5)
+        tk.Label(self, text="Axis Control").pack(fill=tk.X, pady=5)
+
+        checkbox_container = tk.Frame(self)
+        checkbox_container.pack(fill=tk.BOTH, pady=5, anchor=tk.N)
 
         # Iterate through each data_display entry in the project config
         for display in self.config_manager.get_project_config().data_display:
             var = tk.BooleanVar(value=True)
             self.axis_vars[display.input_name] = var
 
-            # Create a frame with a colored border for the checkbox
-            checkbox_frame = tk.Frame(self, highlightbackground=display.color, highlightcolor=display.color,
+            checkbox_frame = tk.Frame(checkbox_container, highlightbackground=display.color, highlightcolor=display.color,
                                       highlightthickness=2, bd=0, padx=1, pady=1)
-            checkbox_frame.pack(anchor=tk.W, pady=2)
+            checkbox_frame.pack(anchor=tk.NW, pady=2, fill=tk.X)
 
             checkbox = tk.Checkbutton(checkbox_frame, text=display.display_name, variable=var,
                                       command=self.update_viewer)
-            checkbox.pack(anchor=tk.W, padx=2)
+            checkbox.pack(anchor=tk.W, padx=5)
 
     def update_viewer(self):
         """Update the viewer when axis checkboxes are changed."""
-        # Collect which axes are enabled (based on the BooleanVars) and update the viewer
         active_axes = [axis for axis, var in self.axis_vars.items() if var.get()]
         self.viewer.set_active_axes(active_axes)
 
-    def update_label_list(self, labels):
-        # Update the label list in the Info Pane
-        self.user_labels_listbox.delete(0, tk.END)
-        for label in sorted(labels, key=lambda x: x.start_time):
-            self.user_labels_listbox.insert(tk.END, str(label))
+    def create_legend(self):
+        """Create or update the legend for the labeled actions."""
+        # Create a matplotlib figure for the legend
+        fig, ax = plt.subplots(figsize=(2, 5))  # Adjust the size as needed
+        ax.axis('off')
 
-    def update_legend(self, legend_info):
-        # Clear old legend
-        for widget in self.legend_frame.winfo_children():
-            widget.destroy()
+        lines = []
+        labels = []
 
-        handles, labels = legend_info
-        for handle, label in zip(handles, labels):
-            color = handle.get_color()
-            tk.Label(self.legend_frame, text=label, bg=color, width=10).pack(side=tk.TOP, pady=2)
+        # Labels/Annotations Legend
+        if self.viewer.labels:
+            for label in sorted(self.viewer.labels, key=lambda x: x.start_time):
+                # Get label color and alpha from the project config
+                label_display = self.config_manager.get_label_display(label.behavior)
+                color = label_display.color if label_display else 'gray'
+                alpha = label_display.alpha if label_display else 0.5
 
-    def update_info(self, content):
-        """Update the InfoPane with new content, for example, when a project is loaded."""
-        if content:
-            self.label.config(text=content)
-        else:
-            self.label.config(text="Info Pane: No project loaded")
+                # Calculate the duration of the behavior
+                duration = label.end_time - label.start_time
+                if duration < timedelta(minutes=1):
+                    duration_str = f"{duration.total_seconds():.1f} sec"
+                else:
+                    minutes = duration.total_seconds() / 60
+                    duration_str = f"{minutes:.1f} min"
+
+                # Create a dummy rectangle for the legend
+                rect = plt.Rectangle((0, 0), 1, 1, color=color, alpha=alpha)
+                lines.append(rect)
+                labels.append(f"{label.behavior} ({duration_str})")
+
+        # Create the legend from the dummy elements
+        legend = ax.legend(lines, labels, loc='center', frameon=False)
+
+        # Create or update the Tkinter canvas to display the legend
+        if hasattr(self, 'legend_canvas'):
+            self.legend_canvas.get_tk_widget().destroy()  # Remove the old canvas
+
+        self.legend_canvas = FigureCanvasTkAgg(fig, master=self)
+        self.legend_canvas.get_tk_widget().pack(fill=tk.BOTH, pady=5, expand=True)
+        self.legend_canvas.draw_idle()
+
+    def update_label_durations(self):
+        """Update the legend whenever labels change."""
+        self.update_legend()
+
+    def update_legend(self):
+        """Refresh the legend in the InfoPane when labels are added/updated."""
+        # Clear the existing legend and regenerate it
+        if hasattr(self, 'legend_canvas'):
+            self.legend_canvas.get_tk_widget().destroy()
+
+        # Recreate the legend with updated content
+        self.create_legend()
+
+    def add_separator(self):
+        separator = ttk.Separator(self, orient='horizontal')
+        separator.pack(fill='x', pady=10)
