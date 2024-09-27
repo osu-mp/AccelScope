@@ -45,6 +45,14 @@ class Viewer(tk.Frame):
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Bind the Delete key to the delete label function
+        self.canvas.get_tk_widget().bind("<Delete>", self.on_delete_key)
+
+    def on_delete_key(self, event):
+        """Handle the Delete key to remove a selected label."""
+        if self.selected_label:
+            self.delete_label(self.selected_label)
+
     def set_project_config(self, project_config):
         if project_config:
             self.project_config = project_config
@@ -270,7 +278,11 @@ class Viewer(tk.Frame):
                         self.drag_edge = 'end'  # Dragging the end edge
                         self.drag_start = event.xdata
                         return
-
+                    # Check if left click happened inside an existing label (not the edges)
+                    elif rect.get_x() < event.xdata < rect.get_x() + rect.get_width():  # Inside the rectangle
+                        self.selected_label = label
+                        self.parent.set_status(f"'{label.behavior}' label selected")
+                        return
                 if self.start_label_time:
                     # End of labeling
                     end_time = mdates.num2date(event.xdata)
@@ -289,15 +301,54 @@ class Viewer(tk.Frame):
                     # Start of labeling
                     self.start_label_time = mdates.num2date(event.xdata)
                     self.parent.set_status("Left click to label end of behavior or right click to cancel")
-            elif event.button == 3:  # Right click
-                # Cancel labeling
-                if self.start_label_time:
-                    self.start_label_time = None
-                    self.parent.set_status("Left click to start labeling a behavior")
+
+            elif event.button == 3:  # Right click for context menu
+                # Check if right click landed on a label
+                for label, rect in self.rectangles.items():
+                    if rect.contains_point((event.x, event.y)):
+                        self.show_context_menu(event, label)
+                        return  # Only show the context menu for the first found label
 
             self.update_plot()
             self.current_xlim = self.ax.get_xlim()  # Store limits after interaction
             self.current_ylim = self.ax.get_ylim()
+
+    def show_context_menu(self, event, clicked_label):
+        """Show context menu on right-click if a label is clicked."""
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label="Delete", command=lambda: self.delete_label(clicked_label))
+        menu.add_command(label="Change Behavior", command=lambda: self.change_label_behavior(clicked_label))
+
+        # Convert the matplotlib canvas coordinates to tkinter window coordinates
+        canvas_widget = self.canvas.get_tk_widget()
+
+        x_root = canvas_widget.winfo_rootx() + event.x
+        y_root_adjusted = canvas_widget.winfo_rooty() + int(canvas_widget.winfo_height() - event.y)
+
+        menu.post(x_root, y_root_adjusted)
+
+    def change_label_behavior(self, label):
+        """Change the behavior of an existing label."""
+        # Retrieve behaviors from the project config
+        behaviors = [behavior.display_name for behavior in self.project_config.label_display]
+
+        # Open dialog to select new behavior
+        new_behavior = self.prompt_for_behavior()
+
+        # If the user selected a behavior, update the label's behavior
+        if new_behavior:
+            label.behavior = new_behavior
+            self.save_labels_to_project_config()  # Save changes
+            self.update_label_list()  # Update the InfoPane display
+            self.update_plot()  # Replot with the updated label
+
+    def delete_label(self, label_to_delete):
+        """Delete a label and update the plot and project config."""
+        self.labels.remove(label_to_delete)  # Remove the label from the list
+        self.save_labels_to_project_config()  # Save the updated labels
+        self.update_label_list()  # Update the label display
+        self.update_plot()  # Redraw the plot without the deleted label
+        self.parent.set_status(f"Deleted label: {label_to_delete.behavior}")
 
     def on_mouse_release(self, event):
         if self.dragging and self.selected_label:
