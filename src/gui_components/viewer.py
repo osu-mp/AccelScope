@@ -230,19 +230,18 @@ class Viewer(tk.Frame):
         # self.canvas.draw()
 
     def on_scroll(self, event):
+        """
+        Handle zoom/pan when the user scrolls the mousewheel
+        :param event:
+        :return:
+        """
+        # ignore events if the cursor is not in the plot area
+        if not event.xdata:
+            return
+
         if event.key == 'control':
-            xlim = self.ax.get_xlim()
-            xdata = mdates.num2date(event.xdata)
-            if xdata is None:
-                return
             zoom_factor = 1.2 if event.button == 'up' else 1 / 1.2
-            x_range = (xlim[1] - xlim[0]) / zoom_factor
-            new_xlim = [
-                mdates.date2num(xdata - (xdata - mdates.num2date(xlim[0])) / zoom_factor),
-                mdates.date2num(xdata + (mdates.num2date(xlim[1]) - xdata) / zoom_factor)
-            ]
-            self.ax.set_xlim(new_xlim)
-            self.canvas.draw_idle()
+            self.zoom(event.xdata, zoom_factor)
         else:
             xlim = self.ax.get_xlim()
             x_range = mdates.num2date(xlim[1]) - mdates.num2date(xlim[0])
@@ -258,8 +257,59 @@ class Viewer(tk.Frame):
             self.ax.set_xlim(mdates.date2num(new_xlim))
             self.canvas.draw_idle()
 
-        self.current_xlim = self.ax.get_xlim()  # Update stored x limits after interaction
-        self.current_ylim = self.ax.get_ylim()  # Update stored y limits after interaction
+            self.current_xlim = self.ax.get_xlim()  # Update stored x limits after interaction
+            self.current_ylim = self.ax.get_ylim()  # Update stored y limits after interaction
+        self.canvas.draw_idle()
+
+    def zoom(self, cursor_xdata, zoom_factor):
+        """
+        User has requested zoom. Attempt to update view window (do not let them zoom out too far)
+        and report the view level to the status bar/log
+        :param cursor_xdata:
+        :param zoom_factor:
+        :return:
+        """
+        xlim = self.ax.get_xlim()
+        xdata = mdates.num2date(cursor_xdata)
+        if xdata is None:
+            logging.info("on_scroll, not in viewer ignoring")
+            return
+
+        # Calculate new x-limits based on zoom factor
+        new_xlim = [
+            mdates.date2num(xdata - (xdata - mdates.num2date(xlim[0])) / zoom_factor),
+            mdates.date2num(xdata + (mdates.num2date(xlim[1]) - xdata) / zoom_factor)
+        ]
+
+        # Get the boundaries of the data
+        data_min = mdates.date2num(self.data['Timestamp'].min())
+        data_max = mdates.date2num(self.data['Timestamp'].max())
+
+        # Add a buffer of 10% to 20% to the data boundaries
+        buffer_percentage = 0.1  # 10% buffer
+        data_range = data_max - data_min
+        data_min_buffer = data_min - buffer_percentage * data_range
+        data_max_buffer = data_max + buffer_percentage * data_range
+
+        # Ensure new limits do not extend beyond the data boundaries (with buffer)
+        if new_xlim[0] < data_min_buffer:
+            new_xlim[0] = data_min_buffer
+        if new_xlim[1] > data_max_buffer:
+            new_xlim[1] = data_max_buffer
+
+        # Ensure that the entire data is not zoomed out further than the boundaries
+        if (new_xlim[1] - new_xlim[0]) >= (data_max_buffer - data_min_buffer):
+            new_xlim = [data_min_buffer, data_max_buffer]
+            msg = "Unable to zoom out further, all data is currently being shown"
+        else:
+            # Calculate the zoom level as a percentage of the total data range
+            current_zoom_level = (new_xlim[1] - new_xlim[0]) / (data_max_buffer - data_min_buffer) * 100
+            msg = f"Zooming in, {current_zoom_level:.0f}% of data visible"
+
+        self.parent.set_status(msg)
+        logging.info(msg)
+
+        self.ax.set_xlim(new_xlim)
         self.canvas.draw_idle()
 
     def on_click(self, event):
