@@ -19,6 +19,10 @@ class InfoPane(tk.Frame):
         self.label = tk.Label(self, text='Info Pane')
         self.label.pack(fill=tk.X, pady=5)
 
+        # report cursor x/y/z/time
+        self.create_cursor_report()
+        self.add_separator()
+
         # Dynamically generate checkboxes for each data_display item
         self.data_display_vars = {}
         self.create_data_display_checkboxes()
@@ -33,12 +37,45 @@ class InfoPane(tk.Frame):
         # Create the initial legend for both data display and labeled actions
         self.create_legend()
 
+    def create_cursor_report(self):
+        """Create a section that displays values at the user's cursor position."""
+        self.cursor_report_frame = tk.Frame(self)
+        self.cursor_report_frame.pack(fill=tk.NONE, pady=10)
+
+        # Define and initialize labels for cursor report
+        self.labels = {}
+
+        # Add "Time" label
+        time_label = tk.Label(self.cursor_report_frame, text="Time:", anchor="w", width=4)
+        time_label.grid(row=0, column=0, sticky="w")
+        self.labels['Time'] = tk.Label(self.cursor_report_frame, text="-", anchor="e")
+        self.labels['Time'].grid(row=0, column=1, sticky="e")
+
+        # Add labels for each data display item
+        for idx, display in enumerate(self.project_config.data_display, start=1):
+            data_label = tk.Label(self.cursor_report_frame, text=f"{display.display_name}:", anchor="w", width=4)
+            data_label.grid(row=idx, column=0, sticky="w")
+            self.labels[display.input_name] = tk.Label(self.cursor_report_frame, text="-", anchor="e", width=6)
+            self.labels[display.input_name].grid(row=idx, column=1, sticky="e")
+
+    def update_cursor_report(self, time, data_values):
+        """Update the labels to display current cursor position values."""
+        self.labels['Time'].config(text=time if time else "-")
+
+        for input_name, value in data_values.items():
+            if input_name in self.labels:
+                self.labels[input_name].config(text=value if value is not None else "-")
+
+    def reset_cursor_report(self):
+        """Reset cursor report values to '-' when the cursor leaves the viewer."""
+        self.update_cursor_report(None, {key: None for key in self.labels if key != 'Time'})
+
     def create_data_display_checkboxes(self):
         """Dynamically creates checkboxes for each data_display item from the project config."""
         tk.Label(self, text="Axis Control").pack(fill=tk.X, pady=5)
 
         checkbox_container = tk.Frame(self)
-        checkbox_container.pack(fill=tk.BOTH, pady=5, anchor=tk.N)
+        checkbox_container.pack(fill=tk.NONE, pady=5, anchor=tk.N)
 
         # Iterate through each data_display entry in the project config
         for display in self.config_manager.get_project_config().data_display:

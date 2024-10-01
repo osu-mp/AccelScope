@@ -108,6 +108,7 @@ class Viewer(tk.Frame):
         self.canvas.mpl_connect('scroll_event', self.on_scroll)
         self.canvas.mpl_connect('button_press_event', self.on_click)
         self.canvas.mpl_connect('button_release_event', self.on_mouse_release)
+        self.canvas.mpl_connect('axes_leave_event', self.on_mouse_leave)
 
     def set_active_axes(self, active_axes):
         """Set the active axes based on user input from InfoPane."""
@@ -192,6 +193,24 @@ class Viewer(tk.Frame):
             logging.warning("Unable to save labels to project config as no file entry found")
 
     def on_mouse_move(self, event):
+        if event.inaxes:
+            # Prepare data for cursor report
+            cursor_time = mdates.num2date(event.xdata).replace(tzinfo=None) if event.xdata else None
+            time_str = cursor_time.strftime('%H:%M:%S') if cursor_time else "-"
+            data_values = {}
+
+            # Convert Timestamp column to timezone-naive if it has timezone info
+            timestamp_data = self.data['Timestamp'].dt.tz_localize(None)
+
+            for display in self.project_config.data_display:
+                if display.input_name in self.data.columns:
+                    index = (timestamp_data - pd.Timestamp(cursor_time)).abs().idxmin()
+                    data_values[display.input_name] = f"{self.data.iloc[index][display.input_name]:.2f}"
+
+            # Update the InfoPane with current cursor position
+            if self.info_pane:
+                self.info_pane.update_cursor_report(time_str, data_values)
+
         if event.inaxes and self.dragging and self.selected_label:
             rect = self.rectangles[self.selected_label]
             # Only adjust the rectangle during the drag, not the label data.
@@ -220,6 +239,10 @@ class Viewer(tk.Frame):
         if not near_edge:
             self.canvas.get_tk_widget().config(cursor="")
             self.selected_label = None
+
+    def on_mouse_leave(self, event):
+        if self.info_pane:
+            self.info_pane.reset_cursor_report()
 
     def update_plot(self):
         self.plot_data()
