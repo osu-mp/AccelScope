@@ -236,6 +236,7 @@ class MainApplication(tk.Tk):
         Display the msg in the status bar
         """
         self.status_bar.set(msg)
+        logging.info(msg)
 
 
 class ButtonBar(tk.Frame):

@@ -66,7 +66,7 @@ class Viewer(tk.Frame):
         file_path = self.config_manager.get_file_path(file_entry)
 
         self.parent.set_status(f"Loading {file_entry.path}")
-        logging.info(f"load_file_entry: {file_entry.path}, {file_entry.labels=}")
+
         # Clear previous data
         self.data_path = file_path
         self.ax.clear()
@@ -84,13 +84,9 @@ class Viewer(tk.Frame):
             # self.file_entry = self.config_manager.get_file_entry(relative_path)
 
             # Reload the labels even if the file is opened again
-            logging.info(f"    data: {self.file_entry=}, {self.file_entry.labels}")
             if self.file_entry and self.file_entry.labels:
                 self.labels = self.file_entry.labels  # Repopulate the labels
-                print(f"{self.labels=}")
                 self.update_label_list()  # Update the label listbox
-            else:
-                logging.info("No labels - WTF")
 
             self.setup_mouse_events()
 
@@ -231,11 +227,11 @@ class Viewer(tk.Frame):
 
     def on_scroll(self, event):
         """
-        Handle zoom/pan when the user scrolls the mousewheel
+        Handle zoom/pan when the user scrolls the mousewheel.
         :param event:
         :return:
         """
-        # ignore events if the cursor is not in the plot area
+        # Ignore events if the cursor is not in the plot area
         if not event.xdata:
             return
 
@@ -246,19 +242,41 @@ class Viewer(tk.Frame):
             xlim = self.ax.get_xlim()
             x_range = mdates.num2date(xlim[1]) - mdates.num2date(xlim[0])
             shift = pd.Timedelta(seconds=x_range.total_seconds() * 0.05)
-            if event.button == 'down':
+
+            if event.button == 'down':  # Pan left
                 new_xlim = [mdates.num2date(xlim[0]) - shift, mdates.num2date(xlim[1]) - shift]
-            elif event.button == 'up':
+                direction = "left"
+            elif event.button == 'up':  # Pan right
                 new_xlim = [mdates.num2date(xlim[0]) + shift, mdates.num2date(xlim[1]) + shift]
-            data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None)
-            data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None)
-            new_xlim[0] = max(data_min, new_xlim[0].replace(tzinfo=None))
-            new_xlim[1] = min(data_max, new_xlim[1].replace(tzinfo=None))
+                direction = "right"
+
+            # Get data boundaries as naive datetime
+            data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
+            data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
+
+            # Convert new limits to naive datetime for comparison
+            new_xlim = [new_xlim[0].replace(tzinfo=None), new_xlim[1].replace(tzinfo=None)]
+
+            # Check if new limits exceed data boundaries
+            if new_xlim[0] < data_min:
+                new_xlim[0] = data_min
+                new_xlim[1] = min(data_max, data_min + x_range)
+                self.parent.set_status("Unable to scroll left, this is the start of the data")
+            elif new_xlim[1] > data_max:
+                new_xlim[1] = data_max
+                new_xlim[0] = max(data_min, data_max - x_range)
+                self.parent.set_status("Unable to scroll right, this is the end of the data")
+            else:
+                self.parent.set_status(f"Panning {direction}")
+
+            # Set the new limits and redraw the canvas
             self.ax.set_xlim(mdates.date2num(new_xlim))
             self.canvas.draw_idle()
 
-            self.current_xlim = self.ax.get_xlim()  # Update stored x limits after interaction
-            self.current_ylim = self.ax.get_ylim()  # Update stored y limits after interaction
+            # Update stored limits after interaction
+            self.current_xlim = self.ax.get_xlim()
+            self.current_ylim = self.ax.get_ylim()
+
         self.canvas.draw_idle()
 
     def zoom(self, cursor_xdata, zoom_factor):
@@ -272,7 +290,6 @@ class Viewer(tk.Frame):
         xlim = self.ax.get_xlim()
         xdata = mdates.num2date(cursor_xdata)
         if xdata is None:
-            logging.info("on_scroll, not in viewer ignoring")
             return
 
         # Calculate new x-limits based on zoom factor
@@ -307,7 +324,6 @@ class Viewer(tk.Frame):
             msg = f"Zooming in, {current_zoom_level:.0f}% of data visible"
 
         self.parent.set_status(msg)
-        logging.info(msg)
 
         self.ax.set_xlim(new_xlim)
         self.canvas.draw_idle()
