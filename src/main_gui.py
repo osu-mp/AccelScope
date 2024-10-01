@@ -1,22 +1,15 @@
 import logging
 import tkinter as tk
-from tkinter import ttk
 from tkinter import Menu
 
 from gui_components.info_pane import InfoPane
 from gui_components.project_browser import ProjectBrowser
-from gui_components.viewer import Viewer  # Make sure to have the Viewer class in viewer.py or adjust the import based on your structure
+from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
-
 from gui_components.new_project_dialog import NewProjectDialog
 from models.project_config import ProjectConfig
-
 from services.config_manager import ConfigManager
-"""
-TODO
-Import BEBE prediction CSVs into viewer, show human labels vs BEBE predictions
 
-"""
 
 class MainApplication(tk.Tk):
     def __init__(self):
@@ -26,14 +19,9 @@ class MainApplication(tk.Tk):
         self.setup_logging()
 
         self.config_manager = ConfigManager(app_parent=self)
-        # self.project_config = None
-        # self.config_manager = ConfigManager()
 
         # Setup the entire GUI in one go
         self.setup_gui()
-
-        # Optionally load the project
-        # self.open_project()
 
         # attempt to open the last CSV the user had open during last run
         self.config_manager.try_to_load_last_csv()
@@ -74,79 +62,7 @@ class MainApplication(tk.Tk):
         # Set the reference of InfoPane in the Viewer
         self.viewer.set_info_pane(self.info_pane)
 
-    # def __init__(self):
-    #     super().__init__()
-    #     self.title('AccelScope - Main Application')
-    #     self.geometry('1200x800')  # Adjust size as needed
-    #
-    #     self.project_config = None
-    #
-    #     self.create_menus()
-    #
-    #     # Create the status bar
-    #     self.status_bar = StatusBar(self)
-    #     self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-    #
-    #     # Create the viewer instance once
-    #     self.viewer = Viewer(self, self.status_bar)
-    #     self.viewer = Viewer(self, self.status_bar)
-    #     self.viewer.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-    #
-    #     # Create the project browser
-    #     self.project_browser = ProjectBrowser(self, project_config=self.load_project_config())
-    #     self.project_browser.pack(side=tk.LEFT, fill=tk.Y)
-    #
-    #     # self.setup_gui()
-    #
-    #     # TODO remove
-    #     self.open_project()
-    #
-    #     self.clear_gui()
-    #     self.create_menus()
-    #
-    #     # Create the button bar
-    #     self.button_bar = ButtonBar(self)
-    #     self.button_bar.pack(side=tk.TOP, fill=tk.X)
-    #
-    #     # Create the status bar
-    #     self.status_bar = StatusBar(self)
-    #     self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-    #     self.status_bar.set("Status bar")
-    #
-    #     # Create a horizontal PanedWindow
-    #     self.paned_window = tk.PanedWindow(self, orient=tk.HORIZONTAL, sashrelief=tk.RAISED, bg='lightgray')
-    #     self.paned_window.pack(fill=tk.BOTH, expand=True)
-    #
-    #     # Initialize the project browser as one pane
-    #     self.project_browser = ProjectBrowser(self, self.project_config, width=200, relief=tk.SUNKEN)
-    #     if self.project_config:
-    #         self.project_browser.load_project()
-    #     self.paned_window.add(self.project_browser, minsize=100)  # Ensure a minimum size
-    #
-    #     # Initialize the main viewer/content area as another pane
-    #     # self.viewer = Viewer(self, data_path='../test/data/F202_2018-05-20.csv', width=600, relief=tk.SUNKEN)
-    #     self.viewer = Viewer(self, status_bar=self.status_bar, width=600, relief=tk.SUNKEN)
-    #     self.viewer.set_project_config(self.project_config)
-    #     # self.viewer_content = ttk.Frame(self.paned_window, width=600, relief=tk.SUNKEN)
-    #     # self.paned_window.add(self.viewer_content, minsize=200)  # Slightly larger minimum size
-    #     self.paned_window.add(self.viewer, minsize=200)
-    #     # viewer_label = tk.Label(self.viewer_content, text='Viewer Area', bg='green')
-    #     # viewer_label.pack(fill=tk.BOTH, expand=True)
-    #
-    #     # Initialize an info pane related to the viewer as the third pane
-    #     self.info_pane = ttk.Frame(self.paned_window, width=200, relief=tk.SUNKEN)
-    #     self.paned_window.add(self.info_pane, minsize=100)
-    #     info_pane_label = tk.Label(self.info_pane, text='Info Pane', bg='blue')
-    #     info_pane_label.pack(fill=tk.BOTH, expand=True)
-    #
-    # def clear_gui(self):
-    #     # Remove all components in the main window
-    #     for widget in self.winfo_children():
-    #         widget.destroy()
-
-
     def create_menus(self):
-
         # Create the menu bar
         self.menu_bar = Menu(self)
         file_menu = Menu(self.menu_bar, tearoff=0)
@@ -170,10 +86,6 @@ class MainApplication(tk.Tk):
         self.menu_bar.add_cascade(label='Help', menu=help_menu)
 
         self.config(menu=self.menu_bar)
-
-    # def setup_gui(self):
-    #     pass
-
 
     def file_imported(self, file_path):
         self.viewer.load_data(file_path)
@@ -208,9 +120,6 @@ class MainApplication(tk.Tk):
         self.config_manager.save_last_project(self.config_manager.last_project,
                                               file_entry.file_id)
 
-    def save_file(self):
-        pass  # Implement file save logic
-
     def edit_preferences(self):
         pass  # Implement preferences editing logic
 
@@ -239,18 +148,6 @@ class MainApplication(tk.Tk):
         logging.info(msg)
 
 
-class ButtonBar(tk.Frame):
-    def __init__(self, parent, **kwargs):
-        super().__init__(parent, **kwargs, bg="blue")
-        tk.Button(self, text='Action Button').pack()  # Placeholder for button
-
-class InfoDisplay(tk.Frame):
-    def __init__(self, parent, **kwargs):
-        super().__init__(parent, **kwargs)
-        tk.Label(self, text='Info Display').pack()
-
-
 if __name__ == '__main__':
-
     app = MainApplication()
     app.mainloop()
