@@ -9,14 +9,15 @@ from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
 from models.project_config import ProjectConfig
 from services.config_manager import ConfigManager
-
+from services.user_app_config_service import UserAppConfigService
 
 class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('AccelScope - Main Application')
-        self.geometry('1200x800')  # Adjust size as needed
+        self.title('AccelScope')
         self.setup_logging()
+
+        self.user_app_config = UserAppConfigService.load_from_file()
 
         self.config_manager = ConfigManager(app_parent=self)
 
@@ -25,6 +26,46 @@ class MainApplication(tk.Tk):
 
         # attempt to open the last CSV the user had open during last run
         self.config_manager.try_to_load_last_csv()
+
+        # Capture any resizes (of main window or individual panes) into user config file
+        self.bind("<Configure>", self.on_resize)
+        self.paned_window.bind("<<PaneConfigure>>", self.on_resize)
+
+        self.restore_user_settings()
+
+    def restore_user_settings(self):
+        """Restores user settings from UserAppConfig."""
+        if self.user_app_config.window_geometry:
+            self.geometry(self.user_app_config.window_geometry)
+
+        if self.user_app_config.window_state:
+            self.state(self.user_app_config.window_state)
+
+        if self.user_app_config.project_browser_width:
+            self.paned_window.paneconfig(self.project_browser, width=self.user_app_config.project_browser_width)
+
+        if self.user_app_config.viewer_width:
+            self.paned_window.paneconfig(self.viewer, width=self.user_app_config.viewer_width)
+
+        if self.user_app_config.info_width:
+            self.paned_window.paneconfig(self.info_pane, width=self.user_app_config.info_width)
+
+    def on_resize(self, event):
+        """Capture window resize events and update UserAppConfig."""
+        self.user_app_config.window_geometry = f"{self.winfo_width()}x{self.winfo_height()}"
+        self.user_app_config.window_state = self.state()
+
+        # sash_coord(0) gets the x-position of the first sash (between the project browser and viewer)
+        sash_position_0 = self.paned_window.sash_coord(0)[0]
+        # sash_coord(1) gets the x-position of the second sash (between the viewer and info pane)
+        sash_position_1 = self.paned_window.sash_coord(1)[0]
+
+        self.user_app_config.project_browser_width = sash_position_0
+        self.user_app_config.viewer_width = sash_position_1 - sash_position_0
+        self.user_app_config.info_width = self.paned_window.winfo_width() - sash_position_1
+
+        # Save updated config
+        UserAppConfigService.save_to_file(self.user_app_config)
 
     def setup_gui(self):
         """Sets up the entire user interface."""
@@ -44,20 +85,17 @@ class MainApplication(tk.Tk):
 
         # Initialize the project browser as one pane (left side)
         self.project_browser = ProjectBrowser(self, project_config=project_config, config_manager=self.config_manager)
-        self.paned_window.add(self.project_browser, minsize=100)
+        self.paned_window.add(self.project_browser, minsize=50)
         self.project_browser.load_project()
 
         # Initialize the main viewer/content area as another pane (middle)
-        self.viewer = Viewer(self, config_manager=self.config_manager, width=600, relief=tk.SUNKEN)
+        self.viewer = Viewer(self, config_manager=self.config_manager, relief=tk.SUNKEN)
         self.paned_window.add(self.viewer, minsize=200)
         self.viewer.set_project_config(project_config)
 
         # info pane for legend info/controls
         self.info_pane = InfoPane(self, config_manager=self.config_manager)
-        self.paned_window.add(self.info_pane, minsize=100)
-
-        # Add the info pane (right side)
-        self.paned_window.add(self.info_pane, minsize=100)
+        self.paned_window.add(self.info_pane, minsize=50)
 
         # Set the reference of InfoPane in the Viewer
         self.viewer.set_info_pane(self.info_pane)
