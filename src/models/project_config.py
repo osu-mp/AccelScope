@@ -1,3 +1,4 @@
+import json
 import logging
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
@@ -13,7 +14,7 @@ class ProjectConfig:
     For example, the same day of activity could contain kill behavior and walking behavior (via trail-cam)
     and have annotations for each.
     """
-    def __init__(self, proj_name, data_root_directory, entries=None, data_display=None, label_display=None):
+    def __init__(self, proj_name, data_root_directory=None, entries=None, data_display=None, label_display=None):
         self.proj_name = proj_name
         self.data_root_directory = data_root_directory
         self.entries = entries or []
@@ -42,6 +43,13 @@ class ProjectConfig:
             data_display=data_display,
             label_display=label_display
         )
+
+    @staticmethod
+    def from_file(file_path):
+        """Load ProjectConfig from a given JSON file path."""
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+            return ProjectConfig.from_dict(data)
 
     def add_directory(self, parent_full_path, new_dir_name):
         # Find the parent directory using the full path

@@ -1,4 +1,5 @@
 import logging
+import os.path
 import tkinter as tk
 from tkinter import Menu
 
@@ -8,7 +9,7 @@ from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
 from models.project_config import ProjectConfig
-from services.config_manager import ConfigManager
+from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
 
 class MainApplication(tk.Tk):
@@ -17,21 +18,38 @@ class MainApplication(tk.Tk):
         self.title('AccelScope')
         self.setup_logging()
 
-        self.user_app_config = UserAppConfigService.load_from_file()
+        # Create UserAppConfigService which manages the user configuration
+        self.user_app_config_service = UserAppConfigService()
+        self.user_app_config = self.user_app_config_service.config  # Access config instance for read-only purposes
 
-        self.config_manager = ConfigManager(app_parent=self)
+        self.project_service = ProjectService()
 
-        # Setup the entire GUI in one go
+        last_opened_project = self.user_app_config_service.config.last_opened_project
+        if last_opened_project and os.path.exists(last_opened_project):
+            self.project_service.load_project(last_opened_project)
+
         self.setup_gui()
 
-        # attempt to open the last CSV the user had open during last run
-        self.config_manager.try_to_load_last_csv()
+        self.reopen_last_project_file()
 
         # Capture any resizes (of main window or individual panes) into user config file
         self.bind("<Configure>", self.on_resize)
         self.paned_window.bind("<<PaneConfigure>>", self.on_resize)
 
         self.restore_user_settings()
+
+    def reopen_last_project_file(self):
+        """
+        Attempt to reload the last open CSV from the active project
+        :return:
+        """
+        last_opened_file = self.user_app_config_service.config.last_opened_file
+        if last_opened_file:
+            file_entry = self.project_service.get_file_entry(last_opened_file)
+            if file_entry:
+                self.viewer.load_file_entry(file_entry)
+            else:
+                logging.warning(f"File with ID {self.last_file_id} not found.")
 
     def restore_user_settings(self):
         """Restores user settings from UserAppConfig."""
@@ -52,20 +70,21 @@ class MainApplication(tk.Tk):
 
     def on_resize(self, event):
         """Capture window resize events and update UserAppConfig."""
-        self.user_app_config.window_geometry = f"{self.winfo_width()}x{self.winfo_height()}"
-        self.user_app_config.window_state = self.state()
+        # Update user config via service, keeping main_gui read-only for config
+        self.user_app_config_service.update_window_geometry(f"{self.winfo_width()}x{self.winfo_height()}")
+        self.user_app_config_service.update_window_state(self.state())
 
-        # sash_coord(0) gets the x-position of the first sash (between the project browser and viewer)
+        # Get the current sash positions to calculate the widths of different panes
         sash_position_0 = self.paned_window.sash_coord(0)[0]
-        # sash_coord(1) gets the x-position of the second sash (between the viewer and info pane)
         sash_position_1 = self.paned_window.sash_coord(1)[0]
 
-        self.user_app_config.project_browser_width = sash_position_0
-        self.user_app_config.viewer_width = sash_position_1 - sash_position_0
-        self.user_app_config.info_width = self.paned_window.winfo_width() - sash_position_1
+        self.user_app_config_service.update_pane_widths(
+            project_browser_width=sash_position_0,
+            viewer_width=sash_position_1 - sash_position_0,
+            info_width=self.paned_window.winfo_width() - sash_position_1
+        )
 
-        # Save updated config
-        UserAppConfigService.save_to_file(self.user_app_config)
+        self.user_app_config_service.save_to_file()
 
     def setup_gui(self):
         """Sets up the entire user interface."""
@@ -73,7 +92,7 @@ class MainApplication(tk.Tk):
         # Create the menus
         self.create_menus()
 
-        project_config = self.config_manager.get_project_config()
+        project_config = self.user_app_config_service.get_project_config()
 
         # Create the status bar
         self.status_bar = StatusBar(self)
@@ -84,17 +103,17 @@ class MainApplication(tk.Tk):
         self.paned_window.pack(fill=tk.BOTH, expand=True)
 
         # Initialize the project browser as one pane (left side)
-        self.project_browser = ProjectBrowser(self, project_config=project_config, config_manager=self.config_manager)
+        self.project_browser = ProjectBrowser(self, project_config=project_config)
         self.paned_window.add(self.project_browser, minsize=50)
         self.project_browser.load_project()
 
         # Initialize the main viewer/content area as another pane (middle)
-        self.viewer = Viewer(self, config_manager=self.config_manager, relief=tk.SUNKEN)
+        self.viewer = Viewer(self, project_service=self.project_service, relief=tk.SUNKEN)
         self.paned_window.add(self.viewer, minsize=200)
         self.viewer.set_project_config(project_config)
 
         # info pane for legend info/controls
-        self.info_pane = InfoPane(self, config_manager=self.config_manager)
+        self.info_pane = InfoPane(self, project_service=self.project_service)
         self.paned_window.add(self.info_pane, minsize=50)
 
         # Set the reference of InfoPane in the Viewer
@@ -154,9 +173,7 @@ class MainApplication(tk.Tk):
         csv_name = self.viewer.get_data_path()
         self.status_bar.set(f"Loaded CSV: {csv_name}")
 
-        # Save the project and the file_id of the currently opened file
-        self.config_manager.save_last_project(self.config_manager.last_project,
-                                              file_entry.file_id)
+        self.user_app_config_service.set_last_opened_file(file_entry.file_id)
 
     def edit_preferences(self):
         pass  # Implement preferences editing logic

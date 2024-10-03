@@ -5,11 +5,10 @@ from models.project_config import DirectoryEntry, FileEntry
 
 
 class ProjectBrowser(tk.Frame):
-    def __init__(self, parent, project_config, config_manager, **kwargs):
+    def __init__(self, parent, project_config, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.project_config = project_config
-        self.config_manager = config_manager
 
         # Add the title label with no padding and specific style
         self.title_label = tk.Label(self, text="Project Browser", font=("Helvetica", 10))
@@ -118,7 +117,7 @@ class ProjectBrowser(tk.Frame):
 
         if item_values:
             file_id = item_values[0]
-            file_entry = self.config_manager.get_file_entry(file_id)
+            file_entry = self.project_config.find_file_by_id(file_id)
 
             if file_entry:
                 self.parent.open_file(file_entry)

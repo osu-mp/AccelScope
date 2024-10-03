@@ -13,13 +13,13 @@ from gui_components.behavior_selection_dialog import BehaviorSelectionDialog
 
 
 class Viewer(tk.Frame):
-    def __init__(self, parent, config_manager, **kwargs):
+    def __init__(self, parent, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
-        self.config_manager = config_manager
+        self.project_service = project_service
         self.info_pane = None
         self.active_axes = [display.input_name for display in
-                            self.config_manager.get_project_config().data_display]  # All axes active by default
+                            self.project_service.get_project_config().data_display]  # All axes active by default
 
         self.data_path = None
         self.data = None
@@ -63,7 +63,7 @@ class Viewer(tk.Frame):
             # self.file_entry = self.project_config.find_file_by_name(relative_path)
 
     def load_file_entry(self, file_entry):
-        file_path = self.config_manager.get_file_path(file_entry)
+        file_path = self.project_service.get_file_path(file_entry)
 
         self.parent.set_status(f"Loading {file_entry.path}")
 
@@ -188,7 +188,7 @@ class Viewer(tk.Frame):
         :return:
         """
         if self.file_entry:
-            self.config_manager.update_labels(self.file_entry.file_id, self.labels)
+            self.project_service.update_labels(self.file_entry.file_id, self.labels)
         else:
             logging.warning("Unable to save labels to project config as no file entry found")
 
