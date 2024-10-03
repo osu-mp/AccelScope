@@ -126,3 +126,7 @@ class ProjectBrowser(tk.Frame):
 
                 # Inform the main application to load the file in the viewer
                 # self.master.load_csv(full_file_path)
+
+    def set_project_config(self, project_config):
+        self.project_config = project_config
+        self.load_project()

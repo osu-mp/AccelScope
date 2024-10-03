@@ -472,7 +472,12 @@ class Viewer(tk.Frame):
         dialog = BehaviorSelectionDialog(self, behaviors, title="Select Behavior")
         return dialog.result
 
+    def clear_plot(self):
+        """
+        Clear the viewer
+        :return:
+        """
+        self.ax.clear()
+        self.labels = []
+        self.canvas.draw_idle()  # Redraw the plot
 
-    def run(self):
-        self.load_data()
-        self.root.mainloop()

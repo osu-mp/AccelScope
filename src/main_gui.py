@@ -1,7 +1,7 @@
 import logging
 import os.path
 import tkinter as tk
-from tkinter import Menu
+from tkinter import Menu, filedialog
 
 from gui_components.info_pane import InfoPane
 from gui_components.project_browser import ProjectBrowser
@@ -49,7 +49,7 @@ class MainApplication(tk.Tk):
             if file_entry:
                 self.viewer.load_file_entry(file_entry)
             else:
-                logging.warning(f"File with ID {self.last_file_id} not found.")
+                logging.warning(f"File with ID {last_opened_file} not found.")
 
     def restore_user_settings(self):
         """Restores user settings from UserAppConfig."""
@@ -129,7 +129,7 @@ class MainApplication(tk.Tk):
         file_menu.add_command(label='Exit', command=self.quit)
 
         proj_menu = Menu(self.menu_bar, tearoff=0)
-        proj_menu.add_command(label='Add File', command=self.open_file)
+        proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
 
         edit_menu = Menu(self.menu_bar, tearoff=0)
         edit_menu.add_command(label='Preferences', command=self.edit_preferences)
@@ -155,17 +155,16 @@ class MainApplication(tk.Tk):
         new_project_dialog.grab_set()  # Optional, but makes the dialog modal
 
     def open_project(self):
-        raise Exception("TODO")
-        self.project_config = ProjectConfig("D:/OSU/AccelScopeDemo/test.json")
-        self.project_config.load_config()
-        self.viewer.set_project_config(self.project_config)
+        project_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")], title="Open Project File")
+        if project_path:
+            self.user_app_config_service.set_last_opened_project(project_path)
+            self.project_service.load_project(project_path)
 
-        # self.project_browser = ProjectBrowser(self, self.project_config)
-        # self.setup_gui()
+            project_config = self.user_app_config_service.get_project_config()
+            self.project_browser.set_project_config(project_config)
 
-    # def load_project_config(self):
-    #     # Load the project config (example placeholder)
-    #     return ProjectConfig("D:/OSU/AccelScopeDemo/test.json")
+            self.viewer.clear_plot()
+            self.info_pane.set_project_service(self.project_service)
 
     def open_file(self, file_entry):
         self.status_bar.set(f"Attempting to load CSV: {file_entry.path}")
@@ -202,6 +201,8 @@ class MainApplication(tk.Tk):
         self.status_bar.set(msg)
         logging.info(msg)
 
+    def generate_project_output(self):
+        raise Exception("TODO")
 
 if __name__ == '__main__':
     app = MainApplication()

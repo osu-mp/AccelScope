@@ -6,15 +6,15 @@ import matplotlib.pyplot as plt
 
 
 class InfoPane(tk.Frame):
-    def __init__(self, parent, config_manager, **kwargs):
+    def __init__(self, parent, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
-        self.config_manager = config_manager
+        self.project_service = project_service
         self.viewer = self.parent.viewer
         self.axis_vars = {}
 
         # Store the project config for accessing the data_display information
-        self.project_config = self.config_manager.get_project_config()
+        self.project_config = self.project_service.get_project_config()
 
         self.label = tk.Label(self, text='Info Pane')
         self.label.pack(fill=tk.X, pady=5)
@@ -78,7 +78,7 @@ class InfoPane(tk.Frame):
         checkbox_container.pack(fill=tk.NONE, pady=5, anchor=tk.N)
 
         # Iterate through each data_display entry in the project config
-        for display in self.config_manager.get_project_config().data_display:
+        for display in self.project_service.get_project_config().data_display:
             var = tk.BooleanVar(value=True)
             self.axis_vars[display.input_name] = var
 
@@ -108,7 +108,7 @@ class InfoPane(tk.Frame):
         if self.viewer.labels:
             for label in sorted(self.viewer.labels, key=lambda x: x.start_time):
                 # Get label color and alpha from the project config
-                label_display = self.config_manager.get_label_display(label.behavior)
+                label_display = self.project_service.get_label_display(label.behavior)
                 color = label_display.color if label_display else 'gray'
                 alpha = label_display.alpha if label_display else 0.5
 
@@ -152,3 +152,12 @@ class InfoPane(tk.Frame):
     def add_separator(self):
         separator = ttk.Separator(self, orient='horizontal')
         separator.pack(fill='x', pady=10)
+
+    def set_project_service(self, project_service):
+        """
+        Called when the project is reloaded (resets legend)
+        :param project_service:
+        :return:
+        """
+        self.project_service = project_service
+        self.update_legend()

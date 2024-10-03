@@ -60,22 +60,25 @@ class UserAppConfigService:
         logging.warning("No active project config found.")
         return None
 
-    # def save_project_config(self):
-    #     """Save the current project configuration if available."""
-    #     if self.current_project_config:
-    #         try:
-    #             with open(self.config.last_opened_project, 'w') as file:
-    #                 json.dump(self.current_project_config.to_dict(), file, indent=4)
-    #                 logging.debug(f"Saved project config to {self.config.last_opened_project}")
-    #         except Exception as e:
-    #             logging.error(f"Failed to save project config: {e}")
-    #
-    # def get_file_entry(self, file_id):
-    #     """Retrieve the file entry by file ID."""
-    #     if self.current_project_config:
-    #         return self.current_project_config.find_file_by_id(file_id)
-    #     return None
+    def set_last_opened_project(self, last_opened_project_path):
+        """
+        User has opened a new project, clear last opened file and reload the project config
+        :param last_opened_project_path:
+        :return:
+        """
+        self.config.last_opened_project = last_opened_project_path
+        self.config.last_opened_file = None
+        self.save_to_file()
+        self.current_project_config = None
+        self.get_project_config()
 
     def set_last_opened_file(self, last_opened_file):
+        """
+        Reload the last opened CSV
+        :param last_opened_file:
+        :return:
+        """
         self.config.last_opened_file = last_opened_file
         self.save_to_file()
+        self.current_project_config = last_opened_file
+        self.get_project_config()
