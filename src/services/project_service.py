@@ -120,3 +120,39 @@ class ProjectService:
         else:
             logging.warning("No active project configuration loaded.")
             return None
+
+    def create_project(self, proj_name, location, data_root):
+        """
+        Handles project creation including validation and saving the config.
+        """
+        # Validate inputs
+        if not proj_name or not location or not data_root:
+            raise ValueError("Project name, location, and data root are required.")
+
+        if os.path.exists(location):
+            raise FileExistsError(f"The file {location} already exists.")
+
+        # Create a new ProjectConfig instance
+        project_config = ProjectConfig(
+            proj_name=proj_name,
+            data_root_directory=data_root,
+            entries=[],
+            data_display=[],
+            label_display=[]
+        )
+
+        # Save the project configuration as a JSON file
+        self._save_project_config(location, project_config)
+
+    @staticmethod
+    def _save_project_config(location, project_config: ProjectConfig):
+        """
+        Internal method to save the project configuration to the specified location.
+        """
+        try:
+            with open(location, 'w') as json_file:
+                json.dump(project_config.to_dict(), json_file, indent=4)
+            logging.info(f"Project created and saved to {location}")
+        except Exception as e:
+            logging.error(f"Failed to save project config to {location}: {e}")
+            raise

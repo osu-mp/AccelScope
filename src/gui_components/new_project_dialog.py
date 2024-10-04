@@ -1,13 +1,16 @@
+import logging
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
-from models.project_config import ProjectConfig
+from services.project_service import ProjectService
 
 
 class NewProjectDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.title("New Project")
-        self.geometry("400x300")
+
+        self.project_service = ProjectService()
+        self.created_project_path = None  # Will store the path if the project is created
 
         # Use grid layout manager instead of pack
         ttk.Label(self, text="Project Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
@@ -25,11 +28,6 @@ class NewProjectDialog(tk.Toplevel):
         self.data_root_entry = ttk.Entry(self)
         self.data_root_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=5)
         ttk.Button(self, text="Browse", command=self.select_directory).grid(row=2, column=2, padx=5, pady=5)
-
-        # Output Style
-        ttk.Label(self, text="Output Style:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
-        self.output_style = ttk.Combobox(self, values=["Output all data", "Output data only between labels"])
-        self.output_style.grid(row=3, column=1, sticky=tk.EW, padx=5, pady=5)
 
         # Confirmation Buttons
         ttk.Button(self, text="Cancel", command=self.destroy).grid(row=4, column=0, padx=5, pady=5)
@@ -76,16 +74,18 @@ class NewProjectDialog(tk.Toplevel):
         location = self.location_entry.get()
         data_root = self.data_root_entry.get()
 
-        print("Creating project at:", location)
-        print(f"{data_root=}")
+        logging.info(f"Creating new project config at {location}")
 
-        # Initialize the project configuration with the specified location
-        project_config = ProjectConfig(location)
-        project_config.initialize_empty_config(data_root)
-        project_config.set_proj_name(proj_name)
+        # Pass data to the ProjectService for validation and creation
+        try:
+            self.project_service.create_project(proj_name=proj_name,
+                                                location=location,
+                                                data_root=data_root)
+            self.created_project_path = location  # Store the path of the created project
+            self.destroy()  # Close the dialog upon success
+        except Exception as e:
+            logging.error(f"Failed to create project: {e}")
+            messagebox.showerror("Error", f"Failed to create project: {e}")
 
-        # Save the new configuration to create the JSON file
-        project_config.save_config()
-
-        # Close the dialog after creating the project
-        self.destroy()
+    def get_created_project_path(self):
+        return self.created_project_path

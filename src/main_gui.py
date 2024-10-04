@@ -124,7 +124,7 @@ class MainApplication(tk.Tk):
         self.menu_bar = Menu(self)
         file_menu = Menu(self.menu_bar, tearoff=0)
         file_menu.add_command(label='New Project', command=self.open_new_project_dialog)
-        file_menu.add_command(label='Open Project', command=self.open_project)
+        file_menu.add_command(label='Open Project', command=self.open_project_dialog)
         file_menu.add_separator()
         file_menu.add_command(label='Exit', command=self.quit)
 
@@ -149,19 +149,41 @@ class MainApplication(tk.Tk):
         self.status_bar.set(f"Successfully loaded CSV into viewer: {self.viewer.get_data_path()}")
 
     def open_new_project_dialog(self):
-        # This method ensures the dialog is properly parented to the main application window
+        """
+        Allows user to create new project
+        :return: None (new project is opened, user app config updated)
+        """
+        # Create and display the NewProjectDialog
         new_project_dialog = NewProjectDialog(self)
         new_project_dialog.transient(self)  # Optionally make the dialog transient
         new_project_dialog.grab_set()  # Optional, but makes the dialog modal
+        self.wait_window(new_project_dialog)  # Wait until dialog is closed
 
-    def open_project(self):
+        # Check if a new project was successfully created
+        new_project_path = new_project_dialog.get_created_project_path()
+        self.open_project(new_project_path)
+
+    def open_project_dialog(self):
+        """Dialog allowing user to select project JSON, open if exists"""
         project_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")], title="Open Project File")
+        self.open_project(project_path)
+
+    def open_project(self, project_path):
+        """
+        Open the given project JSON and reset all panes
+        :param project_path:
+        :return:
+        """
         if project_path:
-            self.user_app_config_service.set_last_opened_project(project_path)
+            if not os.path.exists(project_path):
+                logging.error(f"Unable to open {project_path}, file does not exist")
+                return
             self.project_service.load_project(project_path)
+            self.user_app_config_service.set_last_opened_project(project_path)
 
             project_config = self.user_app_config_service.get_project_config()
             self.project_browser.set_project_config(project_config)
+            self.project_browser.load_project()
 
             self.viewer.clear_plot()
             self.info_pane.set_project_service(self.project_service)
