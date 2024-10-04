@@ -1,7 +1,41 @@
 {
     "proj_name": "YellowstoneCougars",
     "data_root_directory": "D:/OSU/cougar_data",
-    "entries": [],
+    "entries": [
+        {
+            "name": "PredationEvents",
+            "entries": [
+                {
+                    "name": "M201",
+                    "entries": []
+                },
+                {
+                    "name": "F202",
+                    "entries": [
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/06 Jun/08/2018-06-08.csv",
+                            "id": "807ab4a9",
+                            "labels": []
+                        },
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/06 Jun/09/2018-06-09.csv",
+                            "id": "a9f418ba",
+                            "labels": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "TrailcamEvents",
+            "entries": [
+                {
+                    "name": "M201",
+                    "entries": []
+                }
+            ]
+        }
+    ],
     "data_display": [],
     "label_display": []
 }

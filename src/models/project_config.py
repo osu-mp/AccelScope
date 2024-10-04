@@ -50,18 +50,7 @@ class ProjectConfig:
         with open(file_path, 'r') as file:
             data = json.load(file)
             return ProjectConfig.from_dict(data)
-
-    def add_directory(self, parent_full_path, new_dir_name):
-        # Find the parent directory using the full path
-        logging.debug(f"Adding directory {new_dir_name} under path {parent_full_path}")
-        parent_dir = self.find_directory_by_path(parent_full_path)
-        if parent_dir:
-            new_dir = DirectoryEntry(new_dir_name)
-            parent_dir.entries.append(new_dir)  # Append to the entries of the DirectoryEntry
-            logging.debug(f"Added directory {new_dir_name} under {parent_dir.name}")
-        else:
-            logging.error(f"Parent directory not found for path: {parent_full_path}")
-
+#
     def find_directory_by_path(self, path):
         logging.debug(f"Finding directory by path: {path}")
 
@@ -87,39 +76,39 @@ class ProjectConfig:
 
         # Return the final DirectoryEntry object instead of the list of entries
         return entry if isinstance(entry, DirectoryEntry) else None
-
-    def add_file(self, parent_full_path, file_entry):
-        logging.debug(f"Adding file {file_entry.path} under path {parent_full_path}")
-        parent_dir = self.find_directory_by_path(parent_full_path)
-
-        # TODO: ensure file_id of file_entry is a unique ID
-
-        if parent_dir:
-            parent_dir.append(file_entry)
-            logging.debug(f"Added file {file_entry.path} under {parent_dir}")
-        else:
-            logging.error(f"Parent directory not found for path: {parent_full_path}")
-
-    def find_file_by_id(self, file_id):
-        """Recursively searches the directory structure to find a file by its id."""
-        logging.debug(f"Finding file by id: {file_id}")
-        return self._search_file_by_id(self.entries, file_id)
-
-    def _search_file_by_id(self, entries, file_id):
-        for entry in entries:
-            if isinstance(entry, FileEntry) and entry.file_id == file_id:
-                logging.debug(f"Found file: {entry.path}")
-                return entry
-            elif isinstance(entry, DirectoryEntry):
-                found = self._search_file_by_id(entry.entries, file_id)
-                if found:
-                    return found
-        logging.debug(f"File with id {file_id} not found.")
-        return None
-
-    def get_label_display(self, behavior):
-        """Retrieve the LabelDisplay settings for the given behavior."""
-        for display in self.label_display:
-            if display.display_name == behavior:
-                return display
-        return None  # Return None if no matching behavior is found
+    #
+    # def add_file(self, parent_full_path, file_entry):
+    #     logging.debug(f"Adding file {file_entry.path} under path {parent_full_path}")
+    #     parent_dir = self.find_directory_by_path(parent_full_path)
+    #
+    #     # TODO: ensure file_id of file_entry is a unique ID
+    #
+    #     if parent_dir:
+    #         parent_dir.append(file_entry)
+    #         logging.debug(f"Added file {file_entry.path} under {parent_dir}")
+    #     else:
+    #         logging.error(f"Parent directory not found for path: {parent_full_path}")
+    #
+    # def find_file_by_id(self, file_id):
+    #     """Recursively searches the directory structure to find a file by its id."""
+    #     logging.debug(f"Finding file by id: {file_id}")
+    #     return self._search_file_by_id(self.entries, file_id)
+    #
+    # def _search_file_by_id(self, entries, file_id):
+    #     for entry in entries:
+    #         if isinstance(entry, FileEntry) and entry.file_id == file_id:
+    #             logging.debug(f"Found file: {entry.path}")
+    #             return entry
+    #         elif isinstance(entry, DirectoryEntry):
+    #             found = self._search_file_by_id(entry.entries, file_id)
+    #             if found:
+    #                 return found
+    #     logging.debug(f"File with id {file_id} not found.")
+    #     return None
+    #
+    # def get_label_display(self, behavior):
+    #     """Retrieve the LabelDisplay settings for the given behavior."""
+    #     for display in self.label_display:
+    #         if display.display_name == behavior:
+    #             return display
+    #     return None  # Return None if no matching behavior is found

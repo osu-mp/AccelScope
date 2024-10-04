@@ -103,7 +103,7 @@ class MainApplication(tk.Tk):
         self.paned_window.pack(fill=tk.BOTH, expand=True)
 
         # Initialize the project browser as one pane (left side)
-        self.project_browser = ProjectBrowser(self, project_config=project_config)
+        self.project_browser = ProjectBrowser(self, project_config=project_config, project_service=self.project_service)
         self.paned_window.add(self.project_browser, minsize=50)
         self.project_browser.load_project()
 

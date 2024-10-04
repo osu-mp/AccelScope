@@ -18,8 +18,10 @@ class Viewer(tk.Frame):
         self.parent = parent
         self.project_service = project_service
         self.info_pane = None
-        self.active_axes = [display.input_name for display in
-                            self.project_service.get_project_config().data_display]  # All axes active by default
+        self.active_axes = []
+        if self.project_service and self.project_service.get_project_config():
+            self.active_axes = [display.input_name for display in
+                                self.project_service.get_project_config().data_display]  # All axes active by default
 
         self.data_path = None
         self.data = None
@@ -127,7 +129,7 @@ class Viewer(tk.Frame):
         # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
             # Dynamically fetch the label display settings from the project config
-            label_display = self.project_config.get_label_display(label.behavior)
+            label_display = self.project_service.get_label_display(label.behavior)
 
             if label_display:
                 color = label_display.color  # Use the color from the config

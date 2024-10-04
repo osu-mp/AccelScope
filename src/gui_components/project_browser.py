@@ -5,10 +5,11 @@ from models.project_config import DirectoryEntry, FileEntry
 
 
 class ProjectBrowser(tk.Frame):
-    def __init__(self, parent, project_config, **kwargs):
+    def __init__(self, parent, project_config, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
-        self.project_config = project_config
+        self.project_config = project_config        # TODO: get rid of
+        self.project_service = project_service
 
         # Add the title label with no padding and specific style
         self.title_label = tk.Label(self, text="Project Browser", font=("Helvetica", 10))
@@ -24,12 +25,12 @@ class ProjectBrowser(tk.Frame):
 
         # Set up the root node
         if self.project_config:
-            self.root_node = self.tree.insert('', 'end', text=self.project_config.proj_name, open=True)
+            self.root_node = self.tree.insert('', 'end', self.project_config.proj_name, text=self.project_config.proj_name, open=True)
 
         # Set up the context menu
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Add Subdirectory", command=self.add_subdirectory)
-        self.menu.add_command(label="Import CSV File", command=self.import_csv)
+        self.menu.add_command(label="Add CSV File", command=self.add_csv)
 
         self.tree.bind("<Button-3>", self.show_context_menu)  # Right-click on Windows/Linux
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -41,53 +42,83 @@ class ProjectBrowser(tk.Frame):
             self.menu.post(event.x_root, event.y_root)
 
     def add_subdirectory(self):
+        # Get the selected item in the tree
         selected_item = self.tree.selection()[0]
+
+        # Prompt user to enter a new directory name
         new_dir_name = tk.simpledialog.askstring("New Directory", "Enter name for the new directory:")
+
         if new_dir_name:
-            full_path = self.get_full_path(selected_item)  # Get the full path for the selected item
-            # Add new directory to the tree view
-            new_id = self.tree.insert(selected_item, 'end', text=new_dir_name)
-            full_new_path = self.get_full_path(new_id)  # Full path including new directory
+            # Get the full path for the selected item
+            full_path = self.get_full_path(selected_item)
 
             # Update the project configuration
-            self.project_config.add_directory(full_path, new_dir_name, full_new_path)
-            # Save the updated configuration
-            self.project_config.save_config()
+            self.project_service.add_directory(full_path, new_dir_name)
+
+            # Create a unique ID for the new directory
+            new_id = f"{selected_item}/{new_dir_name}"
+            self.tree.insert(selected_item, 'end', new_id, text=new_dir_name)
+
+            # Expand all parent nodes to make sure the new item is visible
+            self.tree.see(new_id)
 
     def get_full_path(self, item_id):
-        path = []
-        while item_id:
-            path.insert(0, self.tree.item(item_id, 'text'))
-            item_id = self.tree.parent(item_id)
-        return '/'.join(path)
+        """Construct the full path for the given tree item ID using unique identifiers."""
+        segments = []
+        current_item = item_id
 
-    def import_csv(self):
+        # Traverse up the tree to construct the full path
+        while current_item:
+            parent = self.tree.parent(current_item)
+            # Avoid adding the project name itself to the segments
+            if parent:
+                segments.append(self.tree.item(current_item, "text"))
+            current_item = parent
+
+        # Reverse to get the correct path order
+        segments.reverse()
+        return '/'.join(segments)
+
+    def add_csv(self):
         selected_item = self.tree.selection()[0]
         filepath = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
 
         if filepath:
+            # Get the full path for the selected item
             full_path = self.get_full_path(selected_item)
 
             # Get the relative path based on the data_root_directory
             relative_path = filepath.replace(self.project_config.data_root_directory, "").lstrip('/').lstrip('\\')
 
-            # Insert the file into the tree and update the project configuration
-            self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1])
+            # Create a new file entry and assign a unique ID to it
+            file_entry = FileEntry(path=relative_path)
+            self.project_service.add_file(full_path, file_entry)
 
-            # Update the actual project configuration with the relative path
-            file_entry = FileEntry(relative_path)
-            self.project_config.add_file(full_path, file_entry)
-            self.project_config.save_config()
+            # Add the new file to the tree view
+            new_id = self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1],
+                                      values=(file_entry.file_id,))
 
-            # Notify the main GUI that a file was imported
-            self.master.file_imported(filepath)
+            # Expand the tree to ensure the new item is visible
+            parent = selected_item
+            while parent:
+                self.tree.item(parent, open=True)
+                parent = self.tree.parent(parent)
+
+            # Ensure the newly added CSV is visible
+            self.tree.see(new_id)
+
+            # Open the newly added CSV file in the viewer
+            self.parent.open_file(file_entry)
 
     def load_project(self):
         # Clear the tree first
         self.tree.delete(*self.tree.get_children())
 
+        if not self.project_service or not self.project_service.current_project_config:
+            return
+
         # Add root node
-        self.root_node = self.tree.insert('', 'end', text=self.project_config.proj_name, open=True)
+        self.root_node = self.tree.insert('', 'end', self.project_config.proj_name, text=self.project_config.proj_name, open=True)
 
         # Recursively add all directories and files
         for entry in self.project_config.entries:
@@ -117,15 +148,10 @@ class ProjectBrowser(tk.Frame):
 
         if item_values:
             file_id = item_values[0]
-            file_entry = self.project_config.find_file_by_id(file_id)
+            file_entry = self.project_service.find_file_by_id(file_id)
 
             if file_entry:
                 self.parent.open_file(file_entry)
-                # Combine the data root directory with the relative path stored in FileEntry
-                full_file_path = f"{self.project_config.data_root_directory}/{file_entry.path}"
-
-                # Inform the main application to load the file in the viewer
-                # self.master.load_csv(full_file_path)
 
     def set_project_config(self, project_config):
         self.project_config = project_config

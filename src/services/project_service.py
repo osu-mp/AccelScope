@@ -1,6 +1,9 @@
 import json
 import logging
 import os
+import uuid
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
 from models.project_config import ProjectConfig
 
 
@@ -65,7 +68,7 @@ class ProjectService:
     def get_file_entry(self, file_id):
         """Retrieve a file entry by file ID from the current project configuration."""
         if self.current_project_config:
-            return self.current_project_config.find_file_by_id(file_id)
+            return self.find_file_by_id(file_id)
         logging.warning(f"No active project configuration loaded.")
         return None
 
@@ -93,25 +96,92 @@ class ProjectService:
     def get_label_display(self, behavior):
         """Retrieve the label display settings for a given behavior from the project configuration."""
         if self.current_project_config:
-            return self.current_project_config.get_label_display(behavior)
+            for display in self.current_project_config.label_display:
+                if display.display_name == behavior:
+                    return display
+            return None  # Return None if no matching behavior is found
         logging.warning(f"No active project configuration loaded.")
         return None
 
+    def find_directory_by_path(self, path):
+        """Find a directory by its path within the current project configuration."""
+        if not self.current_project_config:
+            logging.error("No active project configuration loaded.")
+            return None, False
+
+        logging.debug(f"Finding directory by path: {path}")
+
+        # If the path is empty or matches the project name, return the root entries
+        if not path or path == self.current_project_config.proj_name:
+            return self.current_project_config.entries, True
+
+        # Split the path and traverse the directory structure
+        segments = path.strip('/').split('/')  # Remove leading/trailing slashes and split into segments
+        current_entries = self.current_project_config.entries
+
+        # Traverse the path from the top-level entries
+        for segment in segments:
+            found = False
+            for entry in current_entries:
+                if isinstance(entry, DirectoryEntry) and entry.name == segment:
+                    current_entries = entry.entries
+                    found = True
+                    break
+            if not found:
+                logging.error(f"Directory '{segment}' not found in path: {path}.")
+                return None, False  # If no matching directory is found, return None
+
+        # Return the final DirectoryEntry object
+        return entry if isinstance(entry, DirectoryEntry) else None, False
+
     def add_directory(self, parent_full_path, new_dir_name):
         """Add a new directory entry to the specified parent directory path in the project configuration."""
-        if self.current_project_config:
-            self.current_project_config.add_directory(parent_full_path, new_dir_name)
-            logging.info(f"Added new directory '{new_dir_name}' under '{parent_full_path}'.")
-        else:
+        if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
+            return
+
+        # Use the new find_directory_by_path to get the parent directory
+        parent_dir, is_root = self.find_directory_by_path(parent_full_path)
+
+        if parent_dir is not None:
+            new_dir = DirectoryEntry(new_dir_name)
+
+            if is_root:
+                # If it's the root, add to the root entries list directly
+                self.current_project_config.entries.append(new_dir)
+            else:
+                # Otherwise, add to the found DirectoryEntry's entries list
+                parent_dir.entries.append(new_dir)
+
+            logging.info(f"Added new directory '{new_dir_name}' under '{parent_full_path}'.")
+
+            # Save the project configuration to persist changes
+            self.save_project()
+        else:
+            raise ValueError(f"Parent directory '{parent_full_path}' not found.")
 
     def add_file(self, parent_full_path, file_entry):
         """Add a new file entry to the specified parent directory path in the project configuration."""
-        if self.current_project_config:
-            self.current_project_config.add_file(parent_full_path, file_entry)
-            logging.info(f"Added new file '{file_entry.path}' under '{parent_full_path}'.")
-        else:
+        if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
+            return
+
+        # Generate a unique ID for the file entry
+        unique_id = self._generate_unique_file_id()
+        file_entry.file_id = unique_id
+
+        # Add the file to the specified parent directory path
+        parent_dir, is_root = self.find_directory_by_path(parent_full_path)
+
+        if parent_dir is not None:
+            # Add the file entry to the directory
+            parent_dir.entries.append(file_entry)
+            logging.info(f"Added new file '{file_entry.path}' under '{parent_full_path}' with ID '{unique_id}'.")
+
+            # Save the project configuration to persist changes
+            self.save_project()
+        else:
+            raise ValueError(f"Parent directory '{parent_full_path}' not found.")
 
     def get_project_config(self):
         """Return the current project configuration."""
@@ -156,3 +226,39 @@ class ProjectService:
         except Exception as e:
             logging.error(f"Failed to save project config to {location}: {e}")
             raise
+
+    def _generate_unique_file_id(self):
+        """Generate a unique file ID that does not already exist in the project configuration."""
+        while True:
+            # Generate a simple unique ID
+            unique_id = str(uuid.uuid4())[:8]  # Use the first 8 characters of UUID for simplicity
+
+            # Check if the generated ID already exists
+            if not self._is_file_id_exists(unique_id):
+                return unique_id
+
+    def _is_file_id_exists(self, file_id):
+        """Check if the given file ID already exists in the current project configuration."""
+        if not self.current_project_config:
+            return False
+
+        return self.find_file_by_id(file_id) is not None
+
+    def find_file_by_id(self, file_id):
+        """Retrieve a file entry by file ID from the current project configuration."""
+        if not self.current_project_config:
+            logging.warning("No active project configuration loaded.")
+            return None
+
+        return self._search_file_by_id(self.current_project_config.entries, file_id)
+
+    def _search_file_by_id(self, entries, file_id):
+        """Recursively searches the directory structure to find a file by its id."""
+        for entry in entries:
+            if isinstance(entry, FileEntry) and entry.file_id == file_id:
+                return entry
+            elif isinstance(entry, DirectoryEntry):
+                found = self._search_file_by_id(entry.entries, file_id)
+                if found:
+                    return found
+        return None
