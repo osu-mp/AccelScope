@@ -5,7 +5,8 @@ class FileEntry:
 	"""
 	Represents a CSV file in the project config (unique id plus user generated labels)
 	"""
-	def __init__(self, path, file_id=None, labels=None):
+
+	def __init__(self, path, file_id=None, labels=None, user_verified=False):
 		"""
 		:param path: relative path to CSV file (project config contains root directory)
 		:param file_id: can be emtpy, project service will ensure it is unique
@@ -14,18 +15,24 @@ class FileEntry:
 		self.path = path
 		self.file_id = file_id
 		self.labels = labels or []
+		self.user_verified = user_verified
 
 	def to_dict(self):
 		return {
 			"path": self.path,
 			"id": self.file_id,
-			"labels": [label.to_dict() for label in self.labels]
+			"labels": [label.to_dict() for label in self.labels],
+			"user_verified": self.user_verified
 		}
 
 	@staticmethod
 	def from_dict(data):
 		labels = [Label.from_dict(label) for label in data.get("labels", [])]
-		return FileEntry(data["path"], data["id"], labels)
+		return FileEntry(path=data["path"],
+		                 file_id=data["id"],
+		                 labels=labels,
+		                 user_verified=data.get("user_verified", False)
+		                 )
 
 	def set_labels(self, labels):
 		self.labels = labels

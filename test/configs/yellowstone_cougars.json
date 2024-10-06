@@ -15,12 +15,14 @@
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/06 Jun/08/2018-06-08.csv",
                             "id": "807ab4a9",
-                            "labels": []
+                            "labels": [],
+                            "user_verified": true
                         },
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/06 Jun/09/2018-06-09.csv",
                             "id": "a9f418ba",
-                            "labels": []
+                            "labels": [],
+                            "user_verified": true
                         }
                     ]
                 }
@@ -36,6 +38,59 @@
             ]
         }
     ],
-    "data_display": [],
-    "label_display": []
+    "data_display": [
+        {
+            "input_name": "Acc X [g]",
+            "display_name": "X-axis",
+            "color": "red",
+            "alpha": 0.6,
+            "output_name": "Acc X [g]"
+        },
+        {
+            "input_name": "Acc Y [g]",
+            "display_name": "Y-axis",
+            "color": "black",
+            "alpha": 0.5,
+            "output_name": "Acc Y [g]"
+        },
+        {
+            "input_name": "Acc Z [g]",
+            "display_name": "Z-axis",
+            "color": "blue",
+            "alpha": 0.7,
+            "output_name": "Acc Z [g]"
+        }
+    ],
+    "label_display": [
+        {
+            "display_name": "Stalk",
+            "color": "green",
+            "alpha": 0.2,
+            "output_value": "STALK"
+        },
+        {
+            "display_name": "Kill Phase 1",
+            "color": "purple",
+            "alpha": 0.2,
+            "output_value": "KILL"
+        },
+        {
+            "display_name": "Kill Phase 2",
+            "color": "green",
+            "alpha": 0.2,
+            "output_value": "KILL_PHASE_2"
+        },
+        {
+            "display_name": "Feed",
+            "color": "blue",
+            "alpha": 0.2,
+            "output_value": "FEED"
+        },
+        {
+            "display_name": "Walk",
+            "color": "red",
+            "alpha": 0.2,
+            "output_value": "WALK"
+        }
+    ]
 }

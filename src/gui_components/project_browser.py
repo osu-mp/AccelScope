@@ -19,9 +19,12 @@ class ProjectBrowser(tk.Frame):
         self.tree_frame = tk.Frame(self)  # Additional container to remove extra borders
         self.tree_frame.pack(fill=tk.BOTH, expand=True)
 
+
         # Create the Treeview widget
         self.tree = ttk.Treeview(self.tree_frame, show="tree", selectmode="browse")
         self.tree.pack(fill=tk.BOTH, expand=True)
+        self.tree.tag_configure("green", foreground="green")
+        self.tree.tag_configure("red", foreground="red")
 
         # Set up the root node
         if self.project_config:
@@ -84,31 +87,35 @@ class ProjectBrowser(tk.Frame):
         filepath = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
 
         if filepath:
-            # Get the full path for the selected item
             full_path = self.get_full_path(selected_item)
-
-            # Get the relative path based on the data_root_directory
             relative_path = filepath.replace(self.project_config.data_root_directory, "").lstrip('/').lstrip('\\')
 
-            # Create a new file entry and assign a unique ID to it
-            file_entry = FileEntry(path=relative_path)
+            # Create a new FileEntry with default user_verified as False
+            file_entry = FileEntry(path=relative_path, user_verified=False)
             self.project_service.add_file(full_path, file_entry)
 
-            # Add the new file to the tree view
-            new_id = self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1],
-                                      values=(file_entry.file_id,))
+            # Add the new file to the tree view and update its color based on user_verified status
+            new_id = self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1])
+            self.update_tree_item_color(file_entry.file_id, file_entry.user_verified)
 
-            # Expand the tree to ensure the new item is visible
-            parent = selected_item
-            while parent:
-                self.tree.item(parent, open=True)
-                parent = self.tree.parent(parent)
-
-            # Ensure the newly added CSV is visible
-            self.tree.see(new_id)
-
-            # Open the newly added CSV file in the viewer
+            # Open the file in the viewer
             self.parent.open_file(file_entry)
+
+    def update_tree_item_color(self, file_id, user_verified):
+        """Update the color of the tree item based on the user_verified status."""
+        item_id = self.find_tree_item_by_file_id(file_id)
+        if item_id:
+            color = "green" if user_verified else "red"
+            self.tree.item(item_id, tags=("user_verified",))
+            self.tree.tag_configure("user_verified", foreground=color)
+
+    def find_tree_item_by_file_id(self, file_id):
+        """Find the tree item ID for the given file ID."""
+        # TODO : this is not properly working when user checks/unchecks verified box
+        for item in self.tree.get_children():
+            if self.tree.item(item, "values") and self.tree.item(item, "values")[0] == file_id:
+                return item
+        return None
 
     def load_project(self):
         # Clear the tree first
@@ -139,7 +146,8 @@ class ProjectBrowser(tk.Frame):
                 self._populate_tree(dir_node, child_entry)
         elif isinstance(entry, FileEntry):
             # use the file's id as a hidden value for easy lookup later
-            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.file_id))
+            text_color = "green" if entry.user_verified else "red"
+            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.file_id), tags=(text_color,))
 
     def on_double_click(self, event):
         """Handle double-click on a tree item"""

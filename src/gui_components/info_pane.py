@@ -10,6 +10,8 @@ class InfoPane(tk.Frame):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.project_service = project_service
+        self.current_file_entry = None  # Store the current FileEntry being viewed
+
         self.viewer = self.parent.viewer
         self.axis_vars = {}
 
@@ -21,6 +23,13 @@ class InfoPane(tk.Frame):
 
         # report cursor x/y/z/time
         self.create_cursor_report()
+        self.add_separator()
+
+        # User Verified Checkbox
+        self.user_verified_var = tk.BooleanVar()
+        self.user_verified_checkbox = tk.Checkbutton(self, text="User Verified", variable=self.user_verified_var,
+                                                     command=self.on_user_verified_change)
+        self.user_verified_checkbox.pack(fill=tk.X, pady=5)
         self.add_separator()
 
         # Dynamically generate checkboxes for each data_display item
@@ -161,3 +170,26 @@ class InfoPane(tk.Frame):
         """
         self.project_service = project_service
         self.update_legend()
+
+    def set_file_entry(self, file_entry):
+        """Update the current FileEntry and update the UI elements."""
+        self.current_file_entry = file_entry
+        if file_entry:
+            self.user_verified_var.set(file_entry.user_verified)
+            if file_entry.user_verified:
+                self.user_verified_checkbox.select()
+            else:
+                self.user_verified_checkbox.deselect()
+
+        self.on_user_verified_change()
+
+    def on_user_verified_change(self):
+        """Handle changes to the user_verified checkbox."""
+        if self.current_file_entry:
+            # Update the FileEntry's user_verified attribute
+            self.current_file_entry.user_verified = self.user_verified_var.get()
+            # Save the project to persist the change
+            self.project_service.save_project()
+            # Update the Project Browser to reflect the changes
+            self.parent.project_browser.update_tree_item_color(self.current_file_entry.file_id,
+                                                               self.current_file_entry.user_verified)

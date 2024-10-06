@@ -47,7 +47,8 @@ class MainApplication(tk.Tk):
         if last_opened_file:
             file_entry = self.project_service.get_file_entry(last_opened_file)
             if file_entry:
-                self.viewer.load_file_entry(file_entry)
+                self.open_file(file_entry)
+                # self.viewer.load_file_entry(file_entry)
             else:
                 logging.warning(f"File with ID {last_opened_file} not found.")
 
@@ -193,6 +194,9 @@ class MainApplication(tk.Tk):
         self.viewer.load_file_entry(file_entry)
         csv_name = self.viewer.get_data_path()
         self.status_bar.set(f"Loaded CSV: {csv_name}")
+
+        # Set the file entry in the InfoPane
+        self.info_pane.set_file_entry(file_entry)
 
         self.user_app_config_service.set_last_opened_file(file_entry.file_id)
 
