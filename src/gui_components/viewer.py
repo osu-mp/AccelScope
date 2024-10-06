@@ -86,7 +86,7 @@ class Viewer(tk.Frame):
             # self.file_entry = self.config_manager.get_file_entry(relative_path)
 
             # Reload the labels even if the file is opened again
-            if self.file_entry and self.file_entry.labels:
+            if self.file_entry: # and self.file_entry.labels:
                 self.labels = self.file_entry.labels  # Repopulate the labels
                 self.update_label_list()  # Update the label listbox
 
@@ -128,6 +128,11 @@ class Viewer(tk.Frame):
 
         # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
+            # Ensure label start and end times are valid
+            if label.start_time is None or label.end_time is None:
+                logging.warning(f"Label '{label.behavior}' has invalid start or end time and will be skipped.")
+                continue
+
             # Dynamically fetch the label display settings from the project config
             label_display = self.project_service.get_label_display(label.behavior)
 
@@ -180,6 +185,10 @@ class Viewer(tk.Frame):
                 y_min = current_min
             if y_max is None or current_max > y_max:
                 y_max = current_max
+
+        # Provide a default if no valid limits were found
+        if y_min is None or y_max is None:
+            y_min, y_max = -1, 1  # Provide a fallback range if no data was available or limits couldn't be determined
 
         self.current_ylim = [y_min, y_max]
 

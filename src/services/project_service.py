@@ -2,8 +2,10 @@ import json
 import logging
 import os
 import uuid
+from models.data_display import DataDisplay
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
+from models.label_display import LabelDisplay
 from models.project_config import ProjectConfig
 
 
@@ -75,7 +77,7 @@ class ProjectService:
     def update_labels(self, file_id, labels):
         """Update the labels for a specific file entry by file ID and save the changes."""
         if self.current_project_config:
-            file_entry = self.current_project_config.find_file_by_id(file_id)
+            file_entry = self.find_file_by_id(file_id)
             if file_entry:
                 file_entry.set_labels(labels)
                 self.save_project()
@@ -202,14 +204,74 @@ class ProjectService:
         if os.path.exists(location):
             raise FileExistsError(f"The file {location} already exists.")
 
-        # Create a new ProjectConfig instance
+        # Create default data_display and label_display configurations as instances of their respective classes
+        # TODO: move this elsewhere
+        default_data_display = [
+            DataDisplay(
+                input_name="Acc X [g]",
+                display_name="X-axis",
+                color="red",
+                alpha=0.6,
+                output_name="Acc X [g]"
+            ),
+            DataDisplay(
+                input_name="Acc Y [g]",
+                display_name="Y-axis",
+                color="black",
+                alpha=0.5,
+                output_name="Acc Y [g]"
+            ),
+            DataDisplay(
+                input_name="Acc Z [g]",
+                display_name="Z-axis",
+                color="blue",
+                alpha=0.7,
+                output_name="Acc Z [g]"
+            )
+        ]
+
+        default_label_display = [
+            LabelDisplay(
+                display_name="Stalk",
+                color="green",
+                alpha=0.2,
+                output_value="STALK"
+            ),
+            LabelDisplay(
+                display_name="Kill Phase 1",
+                color="purple",
+                alpha=0.2,
+                output_value="KILL"
+            ),
+            LabelDisplay(
+                display_name="Kill Phase 2",
+                color="green",
+                alpha=0.2,
+                output_value="KILL_PHASE_2"
+            ),
+            LabelDisplay(
+                display_name="Feed",
+                color="blue",
+                alpha=0.2,
+                output_value="FEED"
+            ),
+            LabelDisplay(
+                display_name="Walk",
+                color="red",
+                alpha=0.2,
+                output_value="WALK"
+            )
+        ]
+
+        # Create a new ProjectConfig instance with default data_display and label_display
         project_config = ProjectConfig(
             proj_name=proj_name,
             data_root_directory=data_root,
             entries=[],
-            data_display=[],
-            label_display=[]
+            data_display=default_data_display,
+            label_display=default_label_display
         )
+
 
         # Save the project configuration as a JSON file
         self._save_project_config(location, project_config)
