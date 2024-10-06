@@ -8,7 +8,6 @@ class ProjectBrowser(tk.Frame):
     def __init__(self, parent, project_config, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
-        self.project_config = project_config        # TODO: get rid of
         self.project_service = project_service
 
         # Add the title label with no padding and specific style
@@ -25,10 +24,6 @@ class ProjectBrowser(tk.Frame):
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.tag_configure("green", foreground="green")
         self.tree.tag_configure("red", foreground="red")
-
-        # Set up the root node
-        if self.project_config:
-            self.root_node = self.tree.insert('', 'end', self.project_config.proj_name, text=self.project_config.proj_name, open=True)
 
         # Set up the context menu
         self.menu = tk.Menu(self, tearoff=0)
@@ -88,7 +83,7 @@ class ProjectBrowser(tk.Frame):
 
         if filepath:
             full_path = self.get_full_path(selected_item)
-            relative_path = filepath.replace(self.project_config.data_root_directory, "").lstrip('/').lstrip('\\')
+            relative_path = filepath.replace(self.project_service.get_project_root_dir(), "").lstrip('/').lstrip('\\')
 
             # Create a new FileEntry with default user_verified as False
             file_entry = FileEntry(path=relative_path, user_verified=False)
@@ -125,11 +120,12 @@ class ProjectBrowser(tk.Frame):
             return
 
         # Add root node
-        self.root_node = self.tree.insert('', 'end', self.project_config.proj_name, text=self.project_config.proj_name, open=True)
+        proj_name = self.project_service.get_project_name()
+        root_node = self.tree.insert('', 'end', proj_name, text=proj_name, open=True)
 
         # Recursively add all directories and files
-        for entry in self.project_config.entries:
-            self._populate_tree(self.root_node, entry)
+        for entry in self.project_service.get_entries():
+            self._populate_tree(root_node, entry)
 
     def _populate_tree(self, parent_node, entry):
         """
@@ -160,7 +156,3 @@ class ProjectBrowser(tk.Frame):
 
             if file_entry:
                 self.parent.open_file(file_entry)
-
-    def set_project_config(self, project_config):
-        self.project_config = project_config
-        self.load_project()

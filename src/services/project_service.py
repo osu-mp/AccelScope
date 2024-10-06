@@ -324,3 +324,36 @@ class ProjectService:
                 if found:
                     return found
         return None
+
+    def get_project_name(self):
+        """Return current project name (alert if not found/empty)"""
+        if not self.current_project_config:
+            logging.warning("No active project configuration loaded.")
+            return None
+
+        proj_name = self.current_project_config.proj_name
+        if not proj_name:
+            logging.warning("Current project has no name or name is empty")
+        return proj_name
+
+    def get_project_root_dir(self):
+        """Return current project root directory (alert if not found/empty)"""
+        if not self.current_project_config:
+            logging.warning("No active project configuration loaded.")
+            return None
+
+        root_dir = self.current_project_config.data_root_directory
+        if not root_dir:
+            logging.warning("Current project has no root directory")
+        return root_dir
+
+    def get_entries(self):
+        """Return current project entries (alert if not found/empty)"""
+        if not self.current_project_config:
+            logging.warning("No active project configuration loaded.")
+            return None
+
+        entries = self.current_project_config.entries
+        if not entries:
+            logging.warning("Current project has no entries")
+        return entries

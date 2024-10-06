@@ -182,8 +182,6 @@ class MainApplication(tk.Tk):
             self.project_service.load_project(project_path)
             self.user_app_config_service.set_last_opened_project(project_path)
 
-            project_config = self.user_app_config_service.get_project_config()
-            self.project_browser.set_project_config(project_config)
             self.project_browser.load_project()
 
             self.viewer.clear_plot()
