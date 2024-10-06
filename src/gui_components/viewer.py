@@ -40,8 +40,6 @@ class Viewer(tk.Frame):
         self.info_pane = info_pane
 
     def setup_viewer(self):
-        self.parent.set_status("Ready to load a CSV from the Project Browser")
-
         # Setup for the viewer (figure, canvas, etc.)
         self.fig, self.ax = plt.subplots(figsize=(10, 6))
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
@@ -67,7 +65,7 @@ class Viewer(tk.Frame):
     def load_file_entry(self, file_entry):
         file_path = self.project_service.get_file_path(file_entry)
 
-        self.parent.set_status(f"Loading {file_entry.path}")
+        self.parent.set_status(f"Attempting to load {file_path}")
 
         # Clear previous data
         self.data_path = file_path
@@ -80,20 +78,15 @@ class Viewer(tk.Frame):
         self.data = data_parser.read_data()
 
         if self.data is not None:
-            # Find the corresponding file entry in the project config for this file
-            # relative_path = file_path.replace(self.project_config.data_root_directory, "").lstrip('/')
-            # self.file_entry = self.project_config.find_file_by_name(relative_path)
-            # self.file_entry = self.config_manager.get_file_entry(relative_path)
-
             # Reload the labels even if the file is opened again
-            if self.file_entry: # and self.file_entry.labels:
+            if self.file_entry:
                 self.labels = self.file_entry.labels  # Repopulate the labels
                 self.update_label_list()  # Update the label listbox
 
             self.setup_mouse_events()
 
         # Update the status bar with the name of the loaded file
-        self.parent.set_status(f"Viewing: {file_path}")
+        self.parent.set_status(f"Loaded: {file_path}")
 
     def get_data_path(self):
         if self.data_path:
@@ -147,8 +140,7 @@ class Viewer(tk.Frame):
             end_num = mdates.date2num(label.end_time)
 
             # Ensure the rectangle spans the entire Y-axis (from bottom to top)
-            rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=alpha, lw=2,
-                             edgecolor=color)
+            rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=alpha, lw=2)
 
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
@@ -403,11 +395,11 @@ class Viewer(tk.Frame):
                         self.labels.append(new_label)
 
                         # update project config
+                        self.parent.set_status(f"New label created: {new_label}; Left click to start labeling a behavior")
                         self.save_labels_to_project_config()
                         self.update_label_list()
 
                     self.start_label_time = None
-                    self.parent.set_status("Left click to start labeling a behavior")
                 else:
                     # Start of labeling
                     self.start_label_time = mdates.num2date(event.xdata)
@@ -487,6 +479,7 @@ class Viewer(tk.Frame):
         # If the user selected a behavior, update the label's behavior
         if new_behavior:
             label.behavior = new_behavior
+            self.parent.set_status(f"Existing label changed to {new_behavior}")
             self.save_labels_to_project_config()  # Save changes
             self.update_label_list()  # Update the InfoPane display
             self.update_plot()  # Replot with the updated label
@@ -497,7 +490,7 @@ class Viewer(tk.Frame):
         self.save_labels_to_project_config()  # Save the updated labels
         self.update_label_list()  # Update the label display
         self.update_plot()  # Redraw the plot without the deleted label
-        self.parent.set_status(f"Deleted label: {label_to_delete.behavior}")
+        self.parent.set_status(f"Deleted label: {label_to_delete}")
 
     def on_mouse_release(self, event):
         if self.dragging and self.selected_label:

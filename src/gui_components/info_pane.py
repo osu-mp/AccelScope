@@ -181,13 +181,14 @@ class InfoPane(tk.Frame):
             else:
                 self.user_verified_checkbox.deselect()
 
-        self.on_user_verified_change()
+        # self.on_user_verified_change()
 
     def on_user_verified_change(self):
         """Handle changes to the user_verified checkbox."""
         if self.current_file_entry:
             # Update the FileEntry's user_verified attribute
             self.current_file_entry.user_verified = self.user_verified_var.get()
+            self.parent.set_status(f"User verified status changed to: {self.current_file_entry.user_verified}")
             # Save the project to persist the change
             self.project_service.save_project()
             # Update the Project Browser to reflect the changes

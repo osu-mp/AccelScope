@@ -81,8 +81,6 @@ class ProjectService:
             if file_entry:
                 file_entry.set_labels(labels)
                 self.save_project()
-                logging.info(f"Updated labels for file with ID {file_id}.")
-
             else:
                 logging.error(f"File with ID {file_id} not found.")
         else:
