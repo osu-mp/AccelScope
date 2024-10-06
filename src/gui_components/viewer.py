@@ -167,6 +167,8 @@ class Viewer(tk.Frame):
             self.ax.set_xlim(self.current_xlim)
         self.ax.set_ylim(bottom, top)  # Set the Y-limits using the correct range
 
+        self.ax.set_xlabel("Time")
+        self.ax.set_ylabel("Total Body Acceleration")
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
         self.canvas.draw_idle()  # Redraw the plot
@@ -379,16 +381,20 @@ class Viewer(tk.Frame):
                         self.drag_start = event.xdata
                         return
                     # Check if left click happened inside an existing label (not the edges)
-                    elif rect.get_x() < event.xdata < rect.get_x() + rect.get_width():  # Inside the rectangle
+                    # skip this part if the user is adding a label
+                    elif not self.start_label_time and rect.get_x() < event.xdata < rect.get_x() + rect.get_width():  # Inside the rectangle
                         self.selected_label = label
                         self.parent.set_status(f"'{label.behavior}' label selected")
                         return
                 if self.start_label_time:
                     # End of labeling
                     end_time = mdates.num2date(event.xdata)
+
+                    start_time, end_time = self.validate_user_label_times(self.start_label_time, end_time)
+
                     behavior = self.prompt_for_behavior()
                     if behavior:
-                        new_label = Label(self.start_label_time, end_time, behavior)
+                        new_label = Label(start_time, end_time, behavior)
                         self.labels.append(new_label)
 
                         # update project config
@@ -412,6 +418,44 @@ class Viewer(tk.Frame):
             self.update_plot()
             self.current_xlim = self.ax.get_xlim()  # Store limits after interaction
             self.current_ylim = self.ax.get_ylim()
+
+    def validate_user_label_times(self, start_time, end_time):
+        """
+        Each time step can only have one behavior
+        This function ensures that the label the user is trying to add does not overlap any existing labels
+        :param start_time:
+        :param end_time:
+        :return:
+        """
+        # TODO: need to add increment at edges (e.g. start_time = label.start_time + 1 increment)
+
+        # ensure start time is before end time (i.e. user selected end with first click)
+        if start_time > end_time:
+            start_time, end_time = end_time, start_time
+
+        # ensure these times do not cross over any existing labels
+        for label in self.labels:
+            # new label completely overlaps, set new end to start of label that is overlapped
+            if start_time <= label.start_time and end_time >= label.end_time:
+                end_time = label.start_time
+                self.parent.set_status(
+                        f"The new label ends before previous label starts, setting end of start of previous")
+                return start_time, end_time
+            # new label starts before previous ends, set start to end of previous
+            if start_time <= label.end_time <= end_time:
+                start_time = label.end_time
+                self.parent.set_status(
+                    f"The new label starts before existing label ends, setting start to end of previous")
+                return start_time, end_time
+            # new label ends after next ends, set end to start of previous
+            if label.start_time <= end_time <= label.end_time:
+                end_time = label.start_time
+                self.parent.set_status(
+                    f"The new label ends after existing label starts, setting end to start of next")
+                return start_time, end_time
+
+        return start_time, end_time
+
 
     def show_context_menu(self, event, clicked_label):
         """Show context menu on right-click if a label is clicked."""
