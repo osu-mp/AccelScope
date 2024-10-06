@@ -209,7 +209,12 @@ class Viewer(tk.Frame):
         if event.inaxes:
             # Prepare data for cursor report
             cursor_time = mdates.num2date(event.xdata).replace(tzinfo=None) if event.xdata else None
-            time_str = cursor_time.strftime('%H:%M:%S') if cursor_time else "-"
+            if not cursor_time:
+                time_str = '-'
+            else:
+                # TODO: is there a cleaner way to do this (format milliseconds)
+                ms = cursor_time.strftime('%f')[:3]
+                time_str = cursor_time.strftime('%H:%M:%S') + f".{ms}"
             data_values = {}
 
             # Convert Timestamp column to timezone-naive if it has timezone info

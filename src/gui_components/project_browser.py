@@ -1,11 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, filedialog
 
+from data_processing.accel_data_processor import AccelDataProcessor
 from models.project_config import DirectoryEntry, FileEntry
 
 
 class ProjectBrowser(tk.Frame):
-    def __init__(self, parent, project_config, project_service, **kwargs):
+    def __init__(self, parent, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.project_service = project_service
@@ -82,8 +83,24 @@ class ProjectBrowser(tk.Frame):
         filepath = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
 
         if filepath:
+            data_root_dir = self.project_service.get_project_root_dir()
+            # TODO: create error dialog
+            if not filepath.startswith(data_root_dir):
+                self.parent.set_status(f"Unable to add file, only files in project root ({data_root_dir}) are allowed")
+                return
+
+            # TODO : create error dialog
+            # ensure that the file can actually be loaded
+            try:
+                data_parser = AccelDataParser(file_path)
+                data = data_parser.read_data()
+            except:
+                self.parent.set_status("Unable to add file as this file does not contain valid accelerometer data")
+                return
+
             full_path = self.get_full_path(selected_item)
-            relative_path = filepath.replace(self.project_service.get_project_root_dir(), "").lstrip('/').lstrip('\\')
+
+            relative_path = filepath.replace(data_root_dir, "").lstrip('/').lstrip('\\')
 
             # Create a new FileEntry with default user_verified as False
             file_entry = FileEntry(path=relative_path, user_verified=False)

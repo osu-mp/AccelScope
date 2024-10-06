@@ -8,9 +8,9 @@ from gui_components.project_browser import ProjectBrowser
 from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
-from models.project_config import ProjectConfig
 from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
+
 
 class MainApplication(tk.Tk):
     def __init__(self):
@@ -104,7 +104,7 @@ class MainApplication(tk.Tk):
         self.paned_window.pack(fill=tk.BOTH, expand=True)
 
         # Initialize the project browser as one pane (left side)
-        self.project_browser = ProjectBrowser(self, project_config=project_config, project_service=self.project_service)
+        self.project_browser = ProjectBrowser(self, project_service=self.project_service)
         self.paned_window.add(self.project_browser, minsize=50)
         self.project_browser.load_project()
 

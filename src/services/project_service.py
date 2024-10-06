@@ -245,7 +245,7 @@ class ProjectService:
             ),
             LabelDisplay(
                 display_name="Kill Phase 2",
-                color="green",
+                color="orange",
                 alpha=0.2,
                 output_value="KILL_PHASE_2"
             ),
