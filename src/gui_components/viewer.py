@@ -48,6 +48,89 @@ class Viewer(tk.Frame):
         # Bind the Delete key to the delete label function
         self.canvas.get_tk_widget().bind("<Delete>", self.on_delete_key)
 
+        # Bind the arrow keys for zoom and pan actions
+        self.canvas.get_tk_widget().bind("<Up>", self.on_key_zoom_in)
+        self.canvas.get_tk_widget().bind("<Down>", self.on_key_zoom_out)
+        self.canvas.get_tk_widget().bind("<Left>", self.on_key_pan_left)
+        self.canvas.get_tk_widget().bind("<Right>", self.on_key_pan_right)
+
+    def on_key_zoom_in(self, event):
+        """Handle zoom in on the center of the plot when the Up arrow key is pressed."""
+        xlim = self.ax.get_xlim()
+        x_center = (xlim[0] + xlim[1]) / 2  # Calculate the center of the plot
+        self.zoom(x_center, 1.2)  # Zoom in with a factor of 1.2
+
+    def on_key_zoom_out(self, event):
+        """Handle zoom out on the center of the plot when the Down arrow key is pressed."""
+        xlim = self.ax.get_xlim()
+        x_center = (xlim[0] + xlim[1]) / 2  # Calculate the center of the plot
+        self.zoom(x_center, 1 / 1.2)  # Zoom out with a factor of 1/1.2
+
+    # New methods for handling key presses for panning
+    def on_key_pan_left(self, event):
+        """Handle pan left when the Left arrow key is pressed."""
+        self.pan(direction="left")
+
+    def on_key_pan_right(self, event):
+        """Handle pan right when the Right arrow key is pressed."""
+        self.pan(direction="right")
+
+    # Extract the panning code into a reusable method
+    def pan(self, direction):
+        """Handle panning in the given direction."""
+        xlim = self.ax.get_xlim()
+        x_range = mdates.num2date(xlim[1]) - mdates.num2date(xlim[0])
+        shift = pd.Timedelta(seconds=x_range.total_seconds() * 0.05)
+
+        if direction == "left":
+            new_xlim = [mdates.num2date(xlim[0]) - shift, mdates.num2date(xlim[1]) - shift]
+        elif direction == "right":
+            new_xlim = [mdates.num2date(xlim[0]) + shift, mdates.num2date(xlim[1]) + shift]
+
+        # Get data boundaries as naive datetime
+        data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
+        data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
+
+        # Convert new limits to naive datetime for comparison
+        new_xlim = [new_xlim[0].replace(tzinfo=None), new_xlim[1].replace(tzinfo=None)]
+
+        # Check if new limits exceed data boundaries
+        if new_xlim[0] < data_min:
+            new_xlim[0] = data_min
+            new_xlim[1] = min(data_max, data_min + x_range)
+            self.parent.set_status("Unable to scroll left, this is the start of the data")
+        elif new_xlim[1] > data_max:
+            new_xlim[1] = data_max
+            new_xlim[0] = max(data_min, data_max - x_range)
+            self.parent.set_status("Unable to scroll right, this is the end of the data")
+        else:
+            self.parent.set_status(f"Panning {direction}")
+
+        # Set the new limits and redraw the canvas
+        self.ax.set_xlim(mdates.date2num(new_xlim))
+        self.canvas.draw_idle()
+
+        # Update stored limits after interaction
+        self.current_xlim = self.ax.get_xlim()
+        self.current_ylim = self.ax.get_ylim()
+
+    def on_scroll(self, event):
+        """
+        Handle zoom/pan when the user scrolls the mousewheel.
+        :param event:
+        :return:
+        """
+        # Ignore events if the cursor is not in the plot area
+        if not event.xdata:
+            return
+
+        if event.key == 'control':
+            zoom_factor = 1.2 if event.button == 'up' else 1 / 1.2
+            self.zoom(event.xdata, zoom_factor)
+        else:
+            direction = "left" if event.button == 'down' else "right"
+            self.pan(direction)
+
     def on_delete_key(self, event):
         """Handle the Delete key to remove a selected label."""
         if self.selected_label:
@@ -121,50 +204,45 @@ class Viewer(tk.Frame):
 
         # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
-            # Ensure label start and end times are valid
             if label.start_time is None or label.end_time is None:
                 logging.warning(f"Label '{label.behavior}' has invalid start or end time and will be skipped.")
                 continue
 
-            # Dynamically fetch the label display settings from the project config
             label_display = self.project_service.get_label_display(label.behavior)
 
             if label_display:
-                color = label_display.color  # Use the color from the config
-                alpha = label_display.alpha  # Use the alpha value from the config
+                color = label_display.color
+                alpha = label_display.alpha
             else:
-                color = 'gray'  # Default to gray if the behavior is unknown
-                alpha = 0.2  # Default transparency
+                color = 'gray'
+                alpha = 0.2
 
             start_num = mdates.date2num(label.start_time)
             end_num = mdates.date2num(label.end_time)
 
-            # Ensure the rectangle spans the entire Y-axis (from bottom to top)
             rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=alpha, lw=2)
 
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
 
-        # TODO: control whether or not the x/y/z are displayed via controls in the info pane
-        # Plot the accelerometer data based on the dynamic data_display configuration
         for display in self.project_config.data_display:
             if display.input_name in self.active_axes:
-                input_name = display.input_name  # Access the object attribute directly
-                color = display.color  # The color to plot the data
-                alpha = display.alpha  # The transparency of the plot
+                input_name = display.input_name
+                color = display.color
+                alpha = display.alpha
                 self.ax.plot(self.data['Timestamp'], self.data[input_name], color=color, alpha=alpha)
 
-        # Set X and Y limits
         if self.current_xlim:
             self.ax.set_xlim(self.current_xlim)
-        self.ax.set_ylim(bottom, top)  # Set the Y-limits using the correct range
+        if self.current_ylim:
+            self.ax.set_ylim(self.current_ylim)
 
         self.ax.set_xlabel("Time")
         self.ax.set_ylabel("Total Body Acceleration")
         self.ax.set_title(self.project_service.get_plot_title(self.file_entry))
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
-        self.canvas.draw_idle()  # Redraw the plot
+        self.canvas.draw_idle()
 
     def set_y_limits(self):
         # Dynamically set Y-limits based on the min and max of the configured data axes
@@ -239,14 +317,24 @@ class Viewer(tk.Frame):
 
             return
 
+        # Adjust the detection threshold based on the current axis limits (considering zoom level)
+        x_min, x_max = self.ax.get_xlim()
+        axis_width = x_max - x_min
+        threshold = axis_width * 0.005  # Use 0.5% of the axis width as the detection threshold
+
         near_edge = False
         for label, rect in self.rectangles.items():
-            if event.xdata and (abs(rect.get_x() - event.xdata) <= 0.01 or abs(
-                    rect.get_x() + rect.get_width() - event.xdata) <= 0.01):
-                self.canvas.get_tk_widget().config(cursor="sb_h_double_arrow")
-                self.selected_label = label
-                near_edge = True
-                break
+            if event.xdata:
+                rect_start = rect.get_x()
+                rect_end = rect.get_x() + rect.get_width()
+
+                # Check if the mouse is within the threshold of the start or end of the rectangle
+                if abs(rect_start - event.xdata) <= threshold or abs(rect_end - event.xdata) <= threshold:
+                    self.canvas.get_tk_widget().config(cursor="sb_h_double_arrow")
+                    self.selected_label = label
+                    near_edge = True
+                    break
+
         if not near_edge:
             self.canvas.get_tk_widget().config(cursor="")
             self.selected_label = None
@@ -259,66 +347,12 @@ class Viewer(tk.Frame):
         self.plot_data()
         # self.canvas.draw()
 
-    def on_scroll(self, event):
-        """
-        Handle zoom/pan when the user scrolls the mousewheel.
-        :param event:
-        :return:
-        """
-        # Ignore events if the cursor is not in the plot area
-        if not event.xdata:
-            return
-
-        if event.key == 'control':
-            zoom_factor = 1.2 if event.button == 'up' else 1 / 1.2
-            self.zoom(event.xdata, zoom_factor)
-        else:
-            xlim = self.ax.get_xlim()
-            x_range = mdates.num2date(xlim[1]) - mdates.num2date(xlim[0])
-            shift = pd.Timedelta(seconds=x_range.total_seconds() * 0.05)
-
-            if event.button == 'down':  # Pan left
-                new_xlim = [mdates.num2date(xlim[0]) - shift, mdates.num2date(xlim[1]) - shift]
-                direction = "left"
-            elif event.button == 'up':  # Pan right
-                new_xlim = [mdates.num2date(xlim[0]) + shift, mdates.num2date(xlim[1]) + shift]
-                direction = "right"
-
-            # Get data boundaries as naive datetime
-            data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
-            data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
-
-            # Convert new limits to naive datetime for comparison
-            new_xlim = [new_xlim[0].replace(tzinfo=None), new_xlim[1].replace(tzinfo=None)]
-
-            # Check if new limits exceed data boundaries
-            if new_xlim[0] < data_min:
-                new_xlim[0] = data_min
-                new_xlim[1] = min(data_max, data_min + x_range)
-                self.parent.set_status("Unable to scroll left, this is the start of the data")
-            elif new_xlim[1] > data_max:
-                new_xlim[1] = data_max
-                new_xlim[0] = max(data_min, data_max - x_range)
-                self.parent.set_status("Unable to scroll right, this is the end of the data")
-            else:
-                self.parent.set_status(f"Panning {direction}")
-
-            # Set the new limits and redraw the canvas
-            self.ax.set_xlim(mdates.date2num(new_xlim))
-            self.canvas.draw_idle()
-
-            # Update stored limits after interaction
-            self.current_xlim = self.ax.get_xlim()
-            self.current_ylim = self.ax.get_ylim()
-
-        self.canvas.draw_idle()
-
     def zoom(self, cursor_xdata, zoom_factor):
         """
         User has requested zoom. Attempt to update view window (do not let them zoom out too far)
-        and report the view level to the status bar/log
-        :param cursor_xdata:
-        :param zoom_factor:
+        and report the view level to the status bar/log.
+        :param cursor_xdata: The x position to zoom around.
+        :param zoom_factor: The factor by which to zoom in or out.
         :return:
         """
         xlim = self.ax.get_xlim()
@@ -365,25 +399,33 @@ class Viewer(tk.Frame):
     def on_click(self, event):
         if event.inaxes:
             if event.button == 1:  # Left click
+                # Save current limits to restore after adding the label
+                current_xlim = self.ax.get_xlim()
+                current_ylim = self.ax.get_ylim()
+
+                # Calculate the detection threshold based on the current axis limits (considering zoom level)
+                x_min, x_max = self.ax.get_xlim()
+                axis_width = x_max - x_min
+                threshold = axis_width * 0.005  # Use 0.5% of the axis width as the detection threshold
+
                 for label, rect in self.rectangles.items():
-                    if event.xdata and (abs(rect.get_x() - event.xdata) <= 0.01):
-                        self.dragging = True
-                        self.selected_label = label
-                        self.drag_edge = 'start'  # Dragging the start edge
-                        self.drag_start = event.xdata
-                        return
-                    elif event.xdata and (abs(rect.get_x() + rect.get_width() - event.xdata) <= 0.01):
-                        self.dragging = True
-                        self.selected_label = label
-                        self.drag_edge = 'end'  # Dragging the end edge
-                        self.drag_start = event.xdata
-                        return
-                    # Check if left click happened inside an existing label (not the edges)
-                    # skip this part if the user is adding a label
-                    elif not self.start_label_time and rect.get_x() < event.xdata < rect.get_x() + rect.get_width():  # Inside the rectangle
-                        self.selected_label = label
-                        self.parent.set_status(f"'{label.behavior}' label selected")
-                        return
+                    if event.xdata:
+                        rect_start = rect.get_x()
+                        rect_end = rect.get_x() + rect.get_width()
+
+                        # Check if the mouse is within the threshold of the start or end of the rectangle
+                        if abs(rect_start - event.xdata) <= threshold or abs(rect_end - event.xdata) <= threshold:
+                            self.dragging = True
+                            self.selected_label = label
+                            self.drag_edge = 'start' if abs(rect_start - event.xdata) <= threshold else 'end'
+                            self.drag_start = event.xdata
+                            return
+                        elif not self.start_label_time and rect_start < event.xdata < rect_end:
+                            # Inside the rectangle
+                            self.selected_label = label
+                            self.parent.set_status(f"'{label.behavior}' label selected")
+                            return
+
                 if self.start_label_time:
                     # End of labeling
                     end_time = mdates.num2date(event.xdata)
@@ -395,8 +437,9 @@ class Viewer(tk.Frame):
                         new_label = Label(start_time, end_time, behavior)
                         self.labels.append(new_label)
 
-                        # update project config
-                        self.parent.set_status(f"New label created: {new_label}; Left click to start labeling a behavior")
+                        # Update project config
+                        self.parent.set_status(
+                            f"New label created: {new_label}; Left click to start labeling a behavior")
                         self.save_labels_to_project_config()
                         self.update_label_list()
 
@@ -406,54 +449,47 @@ class Viewer(tk.Frame):
                     self.start_label_time = mdates.num2date(event.xdata)
                     self.parent.set_status("Left click to label end of behavior or right click to cancel")
 
+                # Restore the zoom level after adding the label
+                self.update_plot()
+                self.ax.set_xlim(current_xlim)
+                self.ax.set_ylim(current_ylim)
+                self.canvas.draw_idle()
+
             elif event.button == 3:  # Right click for context menu
-                # Check if right click landed on a label
                 for label, rect in self.rectangles.items():
                     if rect.contains_point((event.x, event.y)):
                         self.show_context_menu(event, label)
                         return  # Only show the context menu for the first found label
 
-            self.update_plot()
             self.current_xlim = self.ax.get_xlim()  # Store limits after interaction
             self.current_ylim = self.ax.get_ylim()
 
     def validate_user_label_times(self, start_time, end_time):
         """
-        Each time step can only have one behavior
-        This function ensures that the label the user is trying to add does not overlap any existing labels
-        :param start_time:
-        :param end_time:
-        :return:
+        Ensure that the label the user is trying to add does not overlap any existing labels.
+        This function also ensures that start time is before end time.
         """
-        # TODO: need to add increment at edges (e.g. start_time = label.start_time + 1 increment)
-
-        # ensure start time is before end time (i.e. user selected end with first click)
+        # Ensure start time is before end time
         if start_time > end_time:
             start_time, end_time = end_time, start_time
 
-        # ensure these times do not cross over any existing labels
+        # Add a buffer to prevent overlap issues (e.g., 1 second buffer)
+
+        buffer = pd.Timedelta(milliseconds=self.project_service.get_step_time_ms())
+
+        # Ensure these times do not overlap any existing labels
         for label in self.labels:
-            # new label completely overlaps, set new end to start of label that is overlapped
-            if start_time <= label.start_time and end_time >= label.end_time:
-                end_time = label.start_time
+            if (start_time >= label.start_time - buffer and start_time <= label.end_time + buffer) or \
+                    (end_time >= label.start_time - buffer and end_time <= label.end_time + buffer):
+                # Adjust start or end to avoid overlap
+                if start_time < label.end_time:
+                    start_time = label.end_time + buffer
+                if end_time > label.start_time:
+                    end_time = label.start_time - buffer
                 self.parent.set_status(
-                        f"The new label ends before previous label starts, setting end of start of previous")
-                return start_time, end_time
-            # new label starts before previous ends, set start to end of previous
-            if start_time <= label.end_time <= end_time:
-                start_time = label.end_time
-                self.parent.set_status(
-                    f"The new label starts before existing label ends, setting start to end of previous")
-                return start_time, end_time
-            # new label ends after next ends, set end to start of previous
-            if label.start_time <= end_time <= label.end_time:
-                end_time = label.start_time
-                self.parent.set_status(
-                    f"The new label ends after existing label starts, setting end to start of next")
-                return start_time, end_time
+                    f"Adjusted label times to prevent overlap with existing label '{label.behavior}'")
 
         return start_time, end_time
-
 
     def show_context_menu(self, event, clicked_label):
         """Show context menu on right-click if a label is clicked."""

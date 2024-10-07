@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import uuid
 from models.data_display import DataDisplay
@@ -15,6 +16,7 @@ class ProjectService:
     def __init__(self, project_path=None):
         self.current_project_path = project_path
         self.current_project_config = None
+        self.input_freq = 16        # TODO move to project config
         if project_path:
             self.load_project(project_path)
 
@@ -374,3 +376,11 @@ class ProjectService:
         date = os.path.splitext(os.path.basename(file_full_path))[0]
 
         return f"{coug_id}    {date}"
+
+    def get_step_time_ms(self):
+        """
+        For the active project config, return the number of milliseconds one step represents
+        E.g. for 16 Hz data, this is 1000 / 16 ~ 63 ms
+        :return:
+        """
+        return math.ceil(1000 / self.input_freq)

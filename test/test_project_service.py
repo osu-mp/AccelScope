@@ -86,5 +86,23 @@ class TestProjectService(unittest.TestCase):
         expected_title = "F202    2018-06-09"
         self.assertEqual(title, expected_title)
 
+    def test_get_step_time_ms(self):
+        # Test for 16 Hz input frequency
+        project_service = ProjectService()
+        project_service.input_freq = 16
+        self.assertEqual(project_service.get_step_time_ms(), 63)
+
+        # Test for 10 Hz input frequency (should return 100)
+        project_service.input_freq = 10
+        self.assertEqual(project_service.get_step_time_ms(), 100)
+
+        # Test for 1 Hz input frequency (should return 1000)
+        project_service.input_freq = 1
+        self.assertEqual(project_service.get_step_time_ms(), 1000)
+
+        # Test for 25 Hz input frequency (should return 40)
+        project_service.input_freq = 25
+        self.assertEqual(project_service.get_step_time_ms(), 40)
+
 if __name__ == '__main__':
     unittest.main()
