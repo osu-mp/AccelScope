@@ -473,21 +473,23 @@ class Viewer(tk.Frame):
         if start_time > end_time:
             start_time, end_time = end_time, start_time
 
-        # Add a buffer to prevent overlap issues (e.g., 1 second buffer)
-
+        # Add a buffer to prevent overlap issues (e.g., 1 step buffer)
         buffer = pd.Timedelta(milliseconds=self.project_service.get_step_time_ms())
 
-        # Ensure these times do not overlap any existing labels
+        # Sort labels to ensure proper iteration
+        self.labels.sort(key=lambda x: x.start_time)
+
+        # Ensure the new label does not overlap with any existing labels
         for label in self.labels:
-            if (start_time >= label.start_time - buffer and start_time <= label.end_time + buffer) or \
-                    (end_time >= label.start_time - buffer and end_time <= label.end_time + buffer):
-                # Adjust start or end to avoid overlap
-                if start_time < label.end_time:
-                    start_time = label.end_time + buffer
-                if end_time > label.start_time:
-                    end_time = label.start_time - buffer
+            # If the new label starts after an existing label but overlaps, adjust it to start after
+            if start_time <= label.end_time:
+                start_time = label.end_time + buffer
+                if start_time > end_time:
+                    # Adjust the end time if the start time becomes greater
+                    end_time = start_time + buffer
                 self.parent.set_status(
-                    f"Adjusted label times to prevent overlap with existing label '{label.behavior}'")
+                    f"Adjusted label times to prevent overlap with existing label '{label.behavior}'"
+                )
 
         return start_time, end_time
 
