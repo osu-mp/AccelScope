@@ -48,6 +48,8 @@ class Viewer(tk.Frame):
 
         # Bind the Delete key to the delete label function
         self.canvas.get_tk_widget().bind("<Delete>", self.on_delete_key)
+        # Bind the "F" key to zoom to fit all labels
+        self.canvas.get_tk_widget().bind("<f>", self.zoom_to_fit_labels)
 
         # Bind the arrow keys for zoom and pan actions
         self.canvas.get_tk_widget().bind("<Up>", self.on_key_zoom_in)
@@ -580,3 +582,47 @@ class Viewer(tk.Frame):
         self.labels = []
         self.canvas.draw_idle()  # Redraw the plot
 
+    def zoom_to_fit_labels(self, event=None):
+        """Zoom the plot to fit all the labels from start of the first to end of the last."""
+        if not self.labels:
+            # No labels to zoom to
+            self.parent.set_status("No labels found to fit in the view.")
+            return
+
+        # Find the earliest start time and the latest end time from all labels
+        min_start_time = min(label.start_time for label in self.labels)
+        max_end_time = max(label.end_time for label in self.labels)
+
+        # Convert to numeric values for setting x-limits, using the actual dates from the data
+        ref_date = self.data['Timestamp'].dt.normalize().iloc[0].to_pydatetime().date()
+        min_start_datetime = datetime.combine(ref_date, min_start_time)
+        max_end_datetime = datetime.combine(ref_date, max_end_time)
+
+        # Ensure min and max fit within the actual data boundaries
+        data_min = self.data['Timestamp'].min()
+        data_max = self.data['Timestamp'].max()
+
+        if min_start_datetime < data_min:
+            min_start_datetime = data_min
+        if max_end_datetime > data_max:
+            max_end_datetime = data_max
+
+        # Convert to numeric format for Matplotlib
+        min_start_num = mdates.date2num(min_start_datetime)
+        max_end_num = mdates.date2num(max_end_datetime)
+
+        # Calculate a 5% margin to add to the limits
+        data_range = max_end_num - min_start_num
+        margin = data_range * 0.05
+
+        # Set new x-axis limits with the margin
+        self.ax.set_xlim(min_start_num - margin, max_end_num + margin)
+
+        # Redraw the canvas to reflect changes
+        self.canvas.draw_idle()
+
+        # Store new limits to keep pan/zoom consistent across user actions
+        self.current_xlim = self.ax.get_xlim()
+        self.current_ylim = self.ax.get_ylim()
+
+        self.parent.set_status(f"Zoomed to fit all labels from {min_start_time} to {max_end_time}.")

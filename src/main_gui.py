@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import Menu, filedialog
 
 from gui_components.info_pane import InfoPane
+from gui_components.hotkey_dialog import HotkeyDialog
 from gui_components.project_browser import ProjectBrowser
 from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
@@ -136,6 +137,7 @@ class MainApplication(tk.Tk):
         edit_menu.add_command(label='Preferences', command=self.edit_preferences)
 
         help_menu = Menu(self.menu_bar, tearoff=0)
+        help_menu.add_command(label="Hotkeys", command=self.show_hotkeys)
         help_menu.add_command(label='About', command=self.show_about)
 
         self.menu_bar.add_cascade(label='File', menu=file_menu)
@@ -200,6 +202,10 @@ class MainApplication(tk.Tk):
 
     def edit_preferences(self):
         pass  # Implement preferences editing logic
+
+    def show_hotkeys(self):
+        """Display the hotkey dialog."""
+        HotkeyDialog(self)
 
     def show_about(self):
         pass  # Implement about dialog logic
