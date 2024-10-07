@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import tkinter as tk
 from tkinter import ttk
 from datetime import timedelta
@@ -122,12 +123,7 @@ class InfoPane(tk.Frame):
                 alpha = label_display.alpha if label_display else 0.5
 
                 # Calculate the duration of the behavior
-                duration = label.end_time - label.start_time
-                if duration < timedelta(minutes=1):
-                    duration_str = f"{duration.total_seconds():.1f} sec"
-                else:
-                    minutes = duration.total_seconds() / 60
-                    duration_str = f"{minutes:.1f} min"
+                duration_str = self.calculate_duration(label.start_time, label.end_time)
 
                 # Create a dummy rectangle for the legend
                 rect = plt.Rectangle((0, 0), 1, 1, color=color, alpha=alpha)
@@ -196,3 +192,22 @@ class InfoPane(tk.Frame):
             # Update the Project Browser to reflect the changes
             self.parent.project_browser.update_tree_item_color(self.current_file_entry.file_id,
                                                                self.current_file_entry.user_verified)
+
+    @staticmethod
+    def calculate_duration(start_time, end_time):
+        # Combine start and end time with a common date to calculate the duration
+        start_dt = datetime.combine(datetime.min, start_time)
+        end_dt = datetime.combine(datetime.min, end_time)
+
+        # Handle cases where the end time is earlier in the day than the start time (e.g., spanning midnight)
+        if end_dt < start_dt:
+            end_dt += timedelta(days=1)
+
+        duration = end_dt - start_dt
+        if duration < timedelta(minutes=1):
+            duration_str = f"{duration.total_seconds():.1f} sec"
+        else:
+            minutes = duration.total_seconds() / 60
+            duration_str = f"{minutes:.1f} min"
+
+        return duration_str

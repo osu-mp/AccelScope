@@ -1,4 +1,5 @@
 import copy
+from datetime import datetime, date
 import logging
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -217,8 +218,14 @@ class Viewer(tk.Frame):
                 color = 'gray'
                 alpha = 0.2
 
-            start_num = mdates.date2num(label.start_time)
-            end_num = mdates.date2num(label.end_time)
+            # Convert time to datetime by combining it with a reference date
+            ref_date = date(1900, 1, 1)  # Using a consistent reference date
+            start_dt = datetime.combine(ref_date, label.start_time)
+            end_dt = datetime.combine(ref_date, label.end_time)
+
+            # Convert datetime to numeric value for plotting
+            start_num = mdates.date2num(start_dt)
+            end_num = mdates.date2num(end_dt)
 
             rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=alpha, lw=2)
 

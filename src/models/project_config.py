@@ -22,23 +22,23 @@ class ProjectConfig:
         self.label_display = label_display or []
 
     def to_dict(self):
-        """Convert ProjectConfig instance back to a dictionary."""
         return {
-            'proj_name': self.proj_name,
-            'data_root_directory': self.data_root_directory,
-            'entries': [entry.to_dict() for entry in self.entries],
-            'data_display': [dd.to_dict() for dd in self.data_display],
-            'label_display': [ld.to_dict() for ld in self.label_display]
+            "proj_name": self.proj_name,
+            "data_root_directory": self.data_root_directory,
+            "entries": [entry.to_dict() for entry in self.entries],
+            "data_display": [display.to_dict() for display in self.data_display],
+            "label_display": [display.to_dict() for display in self.label_display]
         }
 
     @staticmethod
     def from_dict(data):
         entries = [DirectoryEntry.from_dict(entry) for entry in data.get("entries", [])]
-        data_display = [DataDisplay.from_dict(dd) for dd in data.get("data_display", [])]
-        label_display = [LabelDisplay.from_dict(ld) for ld in data.get("label_display", [])]
+        data_display = [DataDisplay.from_dict(display) for display in data.get("data_display", [])]
+        label_display = [LabelDisplay.from_dict(display) for display in data.get("label_display", [])]
+
         return ProjectConfig(
-            proj_name=data["proj_name"],
-            data_root_directory=data["data_root_directory"],
+            proj_name=data['proj_name'],
+            data_root_directory=data['data_root_directory'],
             entries=entries,
             data_display=data_display,
             label_display=label_display
