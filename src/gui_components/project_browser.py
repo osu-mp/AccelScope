@@ -118,15 +118,26 @@ class ProjectBrowser(tk.Frame):
         item_id = self.find_tree_item_by_file_id(file_id)
         if item_id:
             color = "green" if user_verified else "red"
-            self.tree.item(item_id, tags=("user_verified",))
-            self.tree.tag_configure("user_verified", foreground=color)
+            # Update the tag for the tree item to reflect the new color
+            self.tree.item(item_id, tags=(color,))
 
     def find_tree_item_by_file_id(self, file_id):
         """Find the tree item ID for the given file ID."""
-        # TODO : this is not properly working when user checks/unchecks verified box
-        for item in self.tree.get_children():
-            if self.tree.item(item, "values") and self.tree.item(item, "values")[0] == file_id:
-                return item
+        # Recursively search through all items in the tree
+        for item in self.tree.get_children(''):
+            result = self._search_tree(item, file_id)
+            if result:
+                return result
+        return None
+
+    def _search_tree(self, item, file_id):
+        """Helper function to recursively search the tree for a file ID."""
+        if self.tree.item(item, "values") and self.tree.item(item, "values")[0] == file_id:
+            return item
+        for child_item in self.tree.get_children(item):
+            result = self._search_tree(child_item, file_id)
+            if result:
+                return result
         return None
 
     def load_project(self):
@@ -158,9 +169,10 @@ class ProjectBrowser(tk.Frame):
             for child_entry in entry.entries:
                 self._populate_tree(dir_node, child_entry)
         elif isinstance(entry, FileEntry):
-            # use the file's id as a hidden value for easy lookup later
-            text_color = "green" if entry.user_verified else "red"
-            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.file_id), tags=(text_color,))
+            # Use the file's id as a hidden value for easy lookup later
+            color_tag = "green" if entry.user_verified else "red"
+            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.file_id,),
+                             tags=(color_tag,))
 
     def on_double_click(self, event):
         """Handle double-click on a tree item"""

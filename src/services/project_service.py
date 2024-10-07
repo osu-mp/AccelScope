@@ -355,3 +355,22 @@ class ProjectService:
         if not entries:
             logging.warning("Current project has no entries")
         return entries
+
+    def get_plot_title(self, file_entry):
+        """
+        Return the plot title for the given file_entry
+        This currently uses the file path to determine, but could be customized later (possibly added to project config)
+        E.g. file_full_path = "C:/data_root/F202_27905_010518_072219/MotionData_27905/2018/06 Jun/09/2018-06-09.csv"
+        title = F202 -- 2018-06-09
+        :param file_entry:
+        :return:
+        """
+        file_full_path = self.get_file_path(file_entry)
+        # Extract the fifth parent directory as the coug_id
+        coug_collar = os.path.basename(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file_full_path))))))
+        coug_id = coug_collar.split("_")[0]
+        # Extract the filename without extension as the date
+        date = os.path.splitext(os.path.basename(file_full_path))[0]
+
+        return f"{coug_id}    {date}"

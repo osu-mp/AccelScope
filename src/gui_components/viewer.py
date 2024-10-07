@@ -161,6 +161,7 @@ class Viewer(tk.Frame):
 
         self.ax.set_xlabel("Time")
         self.ax.set_ylabel("Total Body Acceleration")
+        self.ax.set_title(self.project_service.get_plot_title(self.file_entry))
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         plt.xticks(rotation=45)
         self.canvas.draw_idle()  # Redraw the plot

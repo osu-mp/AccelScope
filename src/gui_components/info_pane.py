@@ -189,8 +189,10 @@ class InfoPane(tk.Frame):
             # Update the FileEntry's user_verified attribute
             self.current_file_entry.user_verified = self.user_verified_var.get()
             self.parent.set_status(f"User verified status changed to: {self.current_file_entry.user_verified}")
+
             # Save the project to persist the change
             self.project_service.save_project()
+
             # Update the Project Browser to reflect the changes
             self.parent.project_browser.update_tree_item_color(self.current_file_entry.file_id,
                                                                self.current_file_entry.user_verified)
