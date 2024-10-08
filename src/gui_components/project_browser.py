@@ -1,7 +1,7 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 
-from data_processing.accel_data_processor import AccelDataProcessor
+from accel_data_parser import AccelDataParser
 from models.project_config import DirectoryEntry, FileEntry
 
 
@@ -19,7 +19,6 @@ class ProjectBrowser(tk.Frame):
         self.tree_frame = tk.Frame(self)  # Additional container to remove extra borders
         self.tree_frame.pack(fill=tk.BOTH, expand=True)
 
-
         # Create the Treeview widget
         self.tree = ttk.Treeview(self.tree_frame, show="tree", selectmode="browse")
         self.tree.pack(fill=tk.BOTH, expand=True)
@@ -30,6 +29,7 @@ class ProjectBrowser(tk.Frame):
         self.menu = tk.Menu(self, tearoff=0)
         self.menu.add_command(label="Add Subdirectory", command=self.add_subdirectory)
         self.menu.add_command(label="Add CSV File", command=self.add_csv)
+        self.menu.add_command(label="Delete File", command=self.delete_file)
 
         self.tree.bind("<Button-3>", self.show_context_menu)  # Right-click on Windows/Linux
         self.tree.bind("<Double-1>", self.on_double_click)
@@ -84,18 +84,17 @@ class ProjectBrowser(tk.Frame):
 
         if filepath:
             data_root_dir = self.project_service.get_project_root_dir()
-            # TODO: create error dialog
             if not filepath.startswith(data_root_dir):
                 self.parent.set_status(f"Unable to add file, only files in project root ({data_root_dir}) are allowed")
                 return
 
-            # TODO : create error dialog
-            # ensure that the file can actually be loaded
+            # Ensure the file can be loaded, show error dialog if parsing fails
             try:
-                data_parser = AccelDataParser(file_path)
+                data_parser = AccelDataParser(filepath)
                 data = data_parser.read_data()
-            except:
+            except Exception as e:
                 self.parent.set_status("Unable to add file as this file does not contain valid accelerometer data")
+                messagebox.showerror("Error", f"Unable to parse CSV file: {filepath}\n\nError: {str(e)}")
                 return
 
             full_path = self.get_full_path(selected_item)
@@ -106,8 +105,8 @@ class ProjectBrowser(tk.Frame):
             file_entry = FileEntry(path=relative_path, user_verified=False)
             self.project_service.add_file(full_path, file_entry)
 
-            # Add the new file to the tree view and update its color based on user_verified status
-            new_id = self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1])
+            # Add the new file to the tree view with values and update its color based on user_verified status
+            self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1], values=(file_entry.file_id,))
             self.update_tree_item_color(file_entry.file_id, file_entry.user_verified)
 
             # Open the file in the viewer
@@ -185,3 +184,32 @@ class ProjectBrowser(tk.Frame):
 
             if file_entry:
                 self.parent.open_file(file_entry)
+
+    def delete_file(self):
+        """Delete a file from the project configuration and tree view."""
+        selected_item = self.tree.selection()
+        if not selected_item:
+            return
+
+        item_values = self.tree.item(selected_item, 'values')
+        if not item_values:
+            return
+
+        file_id = item_values[0]
+        file_entry = self.project_service.find_file_by_id(file_id)
+
+        if not file_entry:
+            return
+
+        # Confirm deletion with the user
+        confirm = messagebox.askyesno("Delete File", f"Are you sure you want to delete {file_entry.path}?")
+        if not confirm:
+            return
+
+        # Remove the file entry from the project configuration
+        self.project_service.delete_file_by_id(file_id)
+
+        # Remove the item from the tree view
+        self.tree.delete(selected_item)
+
+        self.parent.set_status(f"Deleted file: {file_entry.path}")

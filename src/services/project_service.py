@@ -384,3 +384,41 @@ class ProjectService:
         :return:
         """
         return math.ceil(1000 / self.input_freq)
+
+    def delete_file_by_id(self, file_id):
+        """Delete a file entry from the project configuration by file ID."""
+        if not self.current_project_config:
+            logging.warning("No active project configuration loaded.")
+            return
+
+        # Find the file entry by its ID
+        file_entry = self.find_file_by_id(file_id)
+
+        if file_entry:
+            # Find the parent directory of the file entry
+            parent_entry = self.find_parent_directory_of_file(file_id, self.current_project_config.entries)
+
+            if parent_entry and isinstance(parent_entry, DirectoryEntry):
+                # Remove the file entry from the parent directory
+                parent_entry.entries.remove(file_entry)
+                self.save_project()  # Persist the changes
+                logging.info(f"Deleted file with ID '{file_id}' from project configuration.")
+            else:
+                logging.warning(f"Parent directory for file with ID '{file_id}' not found.")
+        else:
+            logging.warning(f"File with ID '{file_id}' not found.")
+
+    def find_parent_directory_of_file(self, file_id, entries):
+        """Recursively find the parent directory of a file entry by file ID."""
+        for entry in entries:
+            if isinstance(entry, FileEntry) and entry.file_id == file_id:
+                return None  # If this is the file entry, return None (it has no parent)
+            elif isinstance(entry, DirectoryEntry):
+                if any(isinstance(sub_entry, FileEntry) and sub_entry.file_id == file_id for sub_entry in
+                       entry.entries):
+                    return entry  # Return the parent directory if the file is found here
+                # Recursively search in sub-directories
+                parent = self.find_parent_directory_of_file(file_id, entry.entries)
+                if parent:
+                    return parent
+        return None
