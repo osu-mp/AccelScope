@@ -17,6 +17,8 @@ class AccelDataParser:
 		"""
 		Reads and optionally filters and downsamples the accelerometer data from the CSV file.
 
+		Restricts data to only a single day by ignoring any data that after 23:59
+
 		Parameters:
 		- start_time: Optional; start time to filter data. Default is the start of the dataset.
 		- end_time: Optional; end time to filter data. Default is the end of the dataset.
@@ -30,25 +32,32 @@ class AccelDataParser:
 		self.data = pd.read_csv(self.file_path, skiprows=1)
 
 		# Combine 'UTC DateTime' and 'Milliseconds' into a single timestamp
-		self.data['Timestamp'] = pd.to_datetime(self.data['UTC DateTime'] + '.' + self.data['Milliseconds'].astype(str).str.zfill(3),
-		                                   format='%H:%M:%S.%f')
+		self.data['Timestamp'] = pd.to_datetime(
+			self.data['UTC DateTime'] + '.' + self.data['Milliseconds'].astype(str).str.zfill(3),
+			format='%H:%M:%S.%f'
+		)
 
-		# Extract only the time part (removing the date part)
-		# self.data['Timestamp'] = self.data['Timestamp'].dt.time  # This keeps only the time (e.g., 00:00:04.819)
-		# Convert 'Timestamp' to datetime format
-		self.data['Timestamp'] = pd.to_datetime(self.data['Timestamp'], format='%H:%M:%S.%f')
+		# Convert 'Timestamp' to time only (without date)
+		self.data['TimeOnly'] = self.data['Timestamp'].dt.time
 
 		# Drop the original 'UTC DateTime' and 'Milliseconds' columns
 		self.data.drop(columns=['UTC DateTime', 'Milliseconds'], inplace=True)
 
+		# Detect the rollover point where time goes from '23:59:59' to '00:00:00'
+		for i in range(1, len(self.data)):
+			if self.data['TimeOnly'].iloc[i] < self.data['TimeOnly'].iloc[i - 1]:
+				# We've found the rollover point, cut off all data after this point
+				self.data = self.data.iloc[:i]
+				break
+
 		# Filter by start_time and end_time if provided
 		if start_time:
 			start_time = pd.to_datetime(start_time).time()
-			self.data = self.data[self.data['Timestamp'] >= start_time]
+			self.data = self.data[self.data['TimeOnly'] >= start_time]
 
 		if end_time:
 			end_time = pd.to_datetime(end_time).time()
-			self.data = self.data[self.data['Timestamp'] <= end_time]
+			self.data = self.data[self.data['TimeOnly'] <= end_time]
 
 		# If num_samples is specified and greater than 0, downsample the data
 		if 0 < num_samples < len(self.data):
