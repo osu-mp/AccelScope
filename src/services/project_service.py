@@ -422,3 +422,16 @@ class ProjectService:
                 if parent:
                     return parent
         return None
+
+    def update_file_comment(self, file_id, comment):
+        """Update the comment for a specific file entry by file ID."""
+        if self.current_project_config:
+            file_entry = self.find_file_by_id(file_id)
+            if file_entry:
+                file_entry.comment = comment
+                self.save_project()
+            else:
+                logging.error(f"File with ID {file_id} not found.")
+        else:
+            logging.warning(f"No active project configuration loaded.")
+

@@ -33,6 +33,15 @@ class InfoPane(tk.Frame):
         self.user_verified_checkbox.pack(fill=tk.X, pady=5)
         self.add_separator()
 
+        # Comments Section
+        self.comments_label = tk.Label(self, text="Comments")
+        self.comments_label.pack(fill=tk.X, pady=5)
+
+        self.comments_text = tk.Text(self, height=4, width=40)
+        self.comments_text.pack(fill=tk.X, pady=5)
+        self.comments_text.bind("<KeyRelease>", self.on_comments_change)  # Detect changes to comments
+        self.add_separator()
+
         # Dynamically generate checkboxes for each data_display item
         self.data_display_vars = {}
         self.create_data_display_checkboxes()
@@ -177,7 +186,10 @@ class InfoPane(tk.Frame):
             else:
                 self.user_verified_checkbox.deselect()
 
-        # self.on_user_verified_change()
+            # Set the comment text if available
+            if file_entry.comment:
+                self.comments_text.delete("1.0", tk.END)
+                self.comments_text.insert(tk.END, file_entry.comment)
 
     def on_user_verified_change(self):
         """Handle changes to the user_verified checkbox."""
@@ -211,3 +223,11 @@ class InfoPane(tk.Frame):
             duration_str = f"{minutes:.1f} min"
 
         return duration_str
+
+    def on_comments_change(self, event):
+        """Handle changes to the comments text field."""
+        if self.current_file_entry:
+            # Update the FileEntry's comment attribute
+            new_comment = self.comments_text.get("1.0", tk.END).strip()
+            self.current_file_entry.comment = new_comment
+            self.project_service.save_project()  # Save changes
