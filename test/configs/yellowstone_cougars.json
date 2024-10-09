@@ -52,20 +52,51 @@
                             "id": "614e23bb",
                             "labels": [
                                 {
-                                    "start_time": "09:09:11.722360",
-                                    "end_time": "09:09:11.785360",
+                                    "start_time": "09:03:56.615600",
+                                    "end_time": "09:08:41.595640",
                                     "behavior": "Stalk"
+                                },
+                                {
+                                    "start_time": "09:08:41.658640",
+                                    "end_time": "09:17:07.601360",
+                                    "behavior": "Kill Phase 1"
+                                },
+                                {
+                                    "start_time": "09:17:07.664360",
+                                    "end_time": "09:27:16.684780",
+                                    "behavior": "Kill Phase 2"
+                                },
+                                {
+                                    "start_time": "09:32:02.985760",
+                                    "end_time": "09:46:16.033020",
+                                    "behavior": "Feed"
                                 }
                             ],
-                            "user_verified": false,
+                            "user_verified": true,
                             "comment": ""
                         },
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/05 May/20/2018-05-20.csv",
                             "id": "2cb6ede1",
-                            "labels": [],
-                            "user_verified": false,
-                            "comment": ""
+                            "labels": [
+                                {
+                                    "start_time": "11:00:35.225500",
+                                    "end_time": "1900-01-01T11:05:09.763300+00:00",
+                                    "behavior": "Stalk"
+                                },
+                                {
+                                    "start_time": "11:05:09.826300",
+                                    "end_time": "11:05:25.003180",
+                                    "behavior": "Kill Phase 1"
+                                },
+                                {
+                                    "start_time": "11:09:04.215260",
+                                    "end_time": "11:36:14.061180",
+                                    "behavior": "Feed"
+                                }
+                            ],
+                            "user_verified": true,
+                            "comment": "MP: Does stalking start around 10:48?\nMP: Feeding could likely be extended."
                         }
                     ]
                 }

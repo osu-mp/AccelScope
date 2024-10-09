@@ -9,8 +9,16 @@ class Label:
         :param end_time: Time string in 'HH:MM:SS.ffffff' format
         :param behavior: The behavior name
         """
-        self.start_time = datetime.strptime(start_time, "%H:%M:%S.%f").time()
-        self.end_time = datetime.strptime(end_time, "%H:%M:%S.%f").time()
+        if isinstance(start_time, str):
+            self.start_time = datetime.strptime(start_time, "%H:%M:%S.%f").time()
+        else:
+            self.start_time = start_time  # Already a time object, assign directly
+
+        if isinstance(end_time, str):
+            self.end_time = datetime.strptime(end_time, "%H:%M:%S.%f").time()
+        else:
+            self.end_time = end_time  # Already a time object, assign directly
+
         self.behavior = behavior
         self.duration = self.calculate_duration()
 

@@ -1,0 +1,29 @@
+[DONE] Wes' folder structure
+Output CSVs
+Output graphs
+[DONE] Report x/y/z/time in info pane
+[DONE] Pan left/right update (include logging)
+Fix labeled action text to match rest of GUI (matplotlib format)
+[DONE] Restore GUI settings at boot (maximized, pane sizes, zoom level)
+Add labels to X (include date) and Y; title
+[DONE] Create unique file ids when files added
+[DONE] Fix bug that creates negative time labels (sort min and max first)
+Import BEBE prediction CSVs into viewer, show human labels vs BEBE predictions
+
+[DONE] Info Pane: Checkbox for 'WB Verified Kill'
+Ensure
+Interface and class for reading data
+Interface and classes for writing data
+
+Bugfixes:
+Invalid CSV loaded (try loading activity data instead of motion)
+
+
+I'd like to make the input and output of the data generalizable to support other types later. Can we start architecting some interfaces to allow this. For now, I think I'd like to plan out these features:
+-Input interface
+--Concrete Implementation of input as 'Vectronic Binv2' (this is how my data currently comes in)
+-Output interface
+--Concrete Implementation of output as 'BEBE' (this is how I'd like my data to be generated for the first pass)
+-Some mechanism to list all known input and output concrete classes.
+
+What high level considerations should we talk about first?

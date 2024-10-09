@@ -207,6 +207,13 @@ class InfoPane(tk.Frame):
 
     @staticmethod
     def calculate_duration(start_time, end_time):
+        """Calculate the duration between two times and return a formatted string."""
+        # Ensure both start_time and end_time are time objects
+        if isinstance(start_time, datetime):
+            start_time = start_time.time()
+        if isinstance(end_time, datetime):
+            end_time = end_time.time()
+
         # Combine start and end time with a common date to calculate the duration
         start_dt = datetime.combine(datetime.min, start_time)
         end_dt = datetime.combine(datetime.min, end_time)

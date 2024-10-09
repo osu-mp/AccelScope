@@ -1,12 +1,11 @@
 import copy
-from datetime import datetime, date
+from datetime import datetime, date, time as dt_time, timedelta
 import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.patches import Rectangle
 import tkinter as tk
-from tkinter import simpledialog, ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from accel_data_parser import AccelDataParser
 from models.label import Label
@@ -221,9 +220,15 @@ class Viewer(tk.Frame):
                 alpha = 0.2
 
             # Convert time to datetime by combining it with a reference date
+            ref_date = self.data['Timestamp'].dt.normalize().iloc[0].to_pydatetime().date()
             ref_date = date(1900, 1, 1)  # Using a consistent reference date
-            start_dt = datetime.combine(ref_date, label.start_time)
-            end_dt = datetime.combine(ref_date, label.end_time)
+
+            # Ensure label times are of type time before combining with date
+            start_time = label.start_time.time() if isinstance(label.start_time, datetime) else label.start_time
+            end_time = label.end_time.time() if isinstance(label.end_time, datetime) else label.end_time
+
+            start_dt = datetime.combine(ref_date, start_time)
+            end_dt = datetime.combine(ref_date, end_time)
 
             # Convert datetime to numeric value for plotting
             start_num = mdates.date2num(start_dt)
@@ -234,6 +239,7 @@ class Viewer(tk.Frame):
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
 
+        # Redraw plot after plotting the labels
         for display in self.project_config.data_display:
             if display.input_name in self.active_axes:
                 input_name = display.input_name
@@ -440,6 +446,7 @@ class Viewer(tk.Frame):
                     end_time = mdates.num2date(event.xdata)
 
                     start_time, end_time = self.validate_user_label_times(self.start_label_time, end_time)
+                    print(f"{start_time=},{end_time=}")
 
                     behavior = self.prompt_for_behavior()
                     if behavior:
@@ -475,30 +482,52 @@ class Viewer(tk.Frame):
 
     def validate_user_label_times(self, start_time, end_time):
         """
-        Ensure that the label the user is trying to add does not overlap any existing labels.
-        This function also ensures that start time is before end time.
+        Ensure that the start time is before the end time. If not, swap them.
+        This function also ensures that the label the user is trying to add does not overlap any existing labels.
         """
-        # Ensure start time is before end time
+        # Ensure start time is before end time, if not, swap them
         if start_time > end_time:
             start_time, end_time = end_time, start_time
 
         # Add a buffer to prevent overlap issues (e.g., 1 step buffer)
-        buffer = pd.Timedelta(milliseconds=self.project_service.get_step_time_ms())
+        buffer = timedelta(milliseconds=self.project_service.get_step_time_ms())
 
         # Sort labels to ensure proper iteration
         self.labels.sort(key=lambda x: x.start_time)
 
-        # Ensure the new label does not overlap with any existing labels
         for label in self.labels:
-            # If the new label starts after an existing label but overlaps, adjust it to start after
-            if start_time <= label.end_time:
-                start_time = label.end_time + buffer
-                if start_time > end_time:
-                    # Adjust the end time if the start time becomes greater
-                    end_time = start_time + buffer
-                self.parent.set_status(
-                    f"Adjusted label times to prevent overlap with existing label '{label.behavior}'"
-                )
+            # Ensure both start_time and label times are treated as time objects
+            if isinstance(label.start_time, datetime):
+                label_start_time = label.start_time.time()
+            else:
+                label_start_time = label.start_time
+
+            if isinstance(label.end_time, datetime):
+                label_end_time = label.end_time.time()
+            else:
+                label_end_time = label.end_time
+
+            # Convert start_time and end_time to `time` objects if they are `datetime`
+            if isinstance(start_time, datetime):
+                start_time = start_time.time()
+            if isinstance(end_time, datetime):
+                end_time = end_time.time()
+
+            # Check for overlap and adjust start/end times to prevent it
+            if label_start_time <= start_time <= label_end_time:
+                start_time = (datetime.combine(datetime.min, label_end_time) + buffer).time()
+
+            if label_start_time <= end_time <= label_end_time:
+                end_time = (datetime.combine(datetime.min, label_start_time) - buffer).time()
+
+            # Ensure no overlap by making sure start_time is not after end_time
+            if start_time > end_time:
+                start_time, end_time = end_time, start_time
+
+        if isinstance(start_time, datetime):
+            start_time = start_time.time()
+        if isinstance(end_time, datetime):
+            end_time = end_time.time()
 
         return start_time, end_time
 
@@ -582,6 +611,13 @@ class Viewer(tk.Frame):
         self.labels = []
         self.canvas.draw_idle()  # Redraw the plot
 
+    @staticmethod
+    def to_datetime_if_time(ref_date, label_time):
+        """Convert time objects to datetime using ref_date, leave datetime objects as is."""
+        if isinstance(label_time, dt_time):
+            return datetime.combine(ref_date, label_time)
+        return label_time
+
     def zoom_to_fit_labels(self, event=None):
         """Zoom the plot to fit all the labels from start of the first to end of the last."""
         if not self.labels:
@@ -590,26 +626,24 @@ class Viewer(tk.Frame):
             return
 
         # Find the earliest start time and the latest end time from all labels
-        min_start_time = min(label.start_time for label in self.labels)
-        max_end_time = max(label.end_time for label in self.labels)
-
-        # Convert to numeric values for setting x-limits, using the actual dates from the data
         ref_date = self.data['Timestamp'].dt.normalize().iloc[0].to_pydatetime().date()
-        min_start_datetime = datetime.combine(ref_date, min_start_time)
-        max_end_datetime = datetime.combine(ref_date, max_end_time)
+
+        # Convert all times to datetime for comparison
+        min_start_time = min(self.to_datetime_if_time(ref_date, label.start_time) for label in self.labels)
+        max_end_time = max(self.to_datetime_if_time(ref_date, label.end_time) for label in self.labels)
 
         # Ensure min and max fit within the actual data boundaries
         data_min = self.data['Timestamp'].min()
         data_max = self.data['Timestamp'].max()
 
-        if min_start_datetime < data_min:
-            min_start_datetime = data_min
-        if max_end_datetime > data_max:
-            max_end_datetime = data_max
+        if min_start_time < data_min:
+            min_start_time = data_min
+        if max_end_time > data_max:
+            max_end_time = data_max
 
         # Convert to numeric format for Matplotlib
-        min_start_num = mdates.date2num(min_start_datetime)
-        max_end_num = mdates.date2num(max_end_datetime)
+        min_start_num = mdates.date2num(min_start_time)
+        max_end_num = mdates.date2num(max_end_time)
 
         # Calculate a 5% margin to add to the limits
         data_range = max_end_num - min_start_num
@@ -625,4 +659,4 @@ class Viewer(tk.Frame):
         self.current_xlim = self.ax.get_xlim()
         self.current_ylim = self.ax.get_ylim()
 
-        self.parent.set_status(f"Zoomed to fit all labels from {min_start_time} to {max_end_time}.")
+        self.parent.set_status(f"Zoomed to fit all labels from {min_start_time.time()} to {max_end_time.time()}.")
