@@ -17,7 +17,8 @@ class HotkeyDialog(tk.Toplevel):
 
         # Define hotkeys and descriptions
         hotkeys = [
-            ("F", "Zoom to fit all labels"),
+            ("A", "Zoom out to show all data"),
+            ("F", "Zoom in fit all labels"),
             ("Up Arrow", "Zoom in"),
             ("Down Arrow", "Zoom out"),
             ("Left Arrow", "Pan left"),

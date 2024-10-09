@@ -81,7 +81,7 @@
                             "labels": [
                                 {
                                     "start_time": "11:00:35.225500",
-                                    "end_time": "1900-01-01T11:05:09.763300+00:00",
+                                    "end_time": "11:05:09.763300",
                                     "behavior": "Stalk"
                                 },
                                 {
@@ -97,6 +97,13 @@
                             ],
                             "user_verified": true,
                             "comment": "MP: Does stalking start around 10:48?\nMP: Feeding could likely be extended."
+                        },
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/05 May/22/2018-05-22.csv",
+                            "id": "d6d741ed",
+                            "labels": [],
+                            "user_verified": false,
+                            "comment": ""
                         }
                     ]
                 }
