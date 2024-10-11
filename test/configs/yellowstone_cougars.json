@@ -1,0 +1,177 @@
+{
+    "proj_name": "YellowstoneCougars",
+    "data_root_directory": "D:/OSU/cougar_data",
+    "entries": [
+        {
+            "name": "PredationEvents",
+            "entries": [
+                {
+                    "name": "M201",
+                    "entries": []
+                },
+                {
+                    "name": "F202",
+                    "entries": [
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/06 Jun/08/2018-06-08.csv",
+                            "id": "807ab4a9",
+                            "labels": [
+                                {
+                                    "start_time": "05:58:42.428860",
+                                    "end_time": "05:59:15.582820",
+                                    "behavior": "Stalk"
+                                },
+                                {
+                                    "start_time": "05:59:15.645820",
+                                    "end_time": "05:59:33.922180",
+                                    "behavior": "Kill Phase 1"
+                                },
+                                {
+                                    "start_time": "05:59:33.985180",
+                                    "end_time": "06:00:21.282120",
+                                    "behavior": "Kill Phase 2"
+                                },
+                                {
+                                    "start_time": "06:06:57.079280",
+                                    "end_time": "06:32:21.777180",
+                                    "behavior": "Feed"
+                                }
+                            ],
+                            "user_verified": true,
+                            "comment": ""
+                        },
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/07 Jul/18/2018-07-18.csv",
+                            "id": "a1d851d6",
+                            "labels": [],
+                            "user_verified": true,
+                            "comment": "MP: Spreadsheet lists 12:19:15 AM but it does not align with file\nPerhaps around 19:00?"
+                        },
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/03 Mar/24/2018-03-24.csv",
+                            "id": "614e23bb",
+                            "labels": [
+                                {
+                                    "start_time": "09:03:56.615600",
+                                    "end_time": "09:08:41.595640",
+                                    "behavior": "Stalk"
+                                },
+                                {
+                                    "start_time": "09:08:41.658640",
+                                    "end_time": "09:17:07.601360",
+                                    "behavior": "Kill Phase 1"
+                                },
+                                {
+                                    "start_time": "09:17:07.664360",
+                                    "end_time": "09:27:16.684780",
+                                    "behavior": "Kill Phase 2"
+                                },
+                                {
+                                    "start_time": "09:32:02.985760",
+                                    "end_time": "09:46:16.033020",
+                                    "behavior": "Feed"
+                                }
+                            ],
+                            "user_verified": true,
+                            "comment": ""
+                        },
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/05 May/20/2018-05-20.csv",
+                            "id": "2cb6ede1",
+                            "labels": [
+                                {
+                                    "start_time": "11:00:35.225500",
+                                    "end_time": "11:05:09.763300",
+                                    "behavior": "Stalk"
+                                },
+                                {
+                                    "start_time": "11:05:09.826300",
+                                    "end_time": "11:05:25.003180",
+                                    "behavior": "Kill Phase 1"
+                                },
+                                {
+                                    "start_time": "11:09:04.215260",
+                                    "end_time": "11:36:14.061180",
+                                    "behavior": "Feed"
+                                }
+                            ],
+                            "user_verified": true,
+                            "comment": "MP: Does stalking start around 10:48?\nMP: Feeding could likely be extended."
+                        },
+                        {
+                            "path": "F202_27905_010518_072219/MotionData_27905/2018/05 May/22/2018-05-22.csv",
+                            "id": "d6d741ed",
+                            "labels": [],
+                            "user_verified": false,
+                            "comment": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "TrailcamEvents",
+            "entries": [
+                {
+                    "name": "M201",
+                    "entries": []
+                }
+            ]
+        }
+    ],
+    "data_display": [
+        {
+            "input_name": "Acc X [g]",
+            "display_name": "X-axis",
+            "color": "red",
+            "alpha": 0.6,
+            "output_name": "Acc X [g]"
+        },
+        {
+            "input_name": "Acc Y [g]",
+            "display_name": "Y-axis",
+            "color": "black",
+            "alpha": 0.5,
+            "output_name": "Acc Y [g]"
+        },
+        {
+            "input_name": "Acc Z [g]",
+            "display_name": "Z-axis",
+            "color": "blue",
+            "alpha": 0.7,
+            "output_name": "Acc Z [g]"
+        }
+    ],
+    "label_display": [
+        {
+            "display_name": "Stalk",
+            "color": "green",
+            "alpha": 0.2,
+            "output_value": "STALK"
+        },
+        {
+            "display_name": "Kill Phase 1",
+            "color": "purple",
+            "alpha": 0.2,
+            "output_value": "KILL"
+        },
+        {
+            "display_name": "Kill Phase 2",
+            "color": "orange",
+            "alpha": 0.2,
+            "output_value": "KILL_PHASE_2"
+        },
+        {
+            "display_name": "Feed",
+            "color": "blue",
+            "alpha": 0.2,
+            "output_value": "FEED"
+        },
+        {
+            "display_name": "Walk",
+            "color": "red",
+            "alpha": 0.2,
+            "output_value": "WALK"
+        }
+    ]
+}

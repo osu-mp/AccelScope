@@ -1,0 +1,112 @@
+{
+    "proj_name": "Cougars",
+    "data_root_directory": "D:/OSU/AccelScopeDemo/",
+    "entries": [
+        {
+            "name": "F202",
+            "entries": [
+                {
+                    "path": "data/F202_2018-05-20.csv",
+                    "id": "TODO_123",
+                    "labels": [
+                        {
+                            "start_time": "1900-01-01T02:39:18.479540+00:00",
+                            "end_time": "1900-01-01T06:18:21.373460+00:00",
+                            "behavior": "Stalk"
+                        },
+                        {
+                            "start_time": "1900-01-01T07:08:55.710520+00:00",
+                            "end_time": "1900-01-01T11:48:04.132360+00:00",
+                            "behavior": "Kill Phase 1"
+                        },
+                        {
+                            "start_time": "1900-01-01T12:16:09.745980+00:00",
+                            "end_time": "1900-01-01T19:47:31.938220+00:00",
+                            "behavior": "Walk"
+                        },
+                        {
+                            "start_time": "1900-01-01T20:30:36.545780+00:00",
+                            "end_time": "1900-01-01T21:13:41.153340+00:00",
+                            "behavior": "Stalk"
+                        }
+                    ]
+                },
+                {
+                    "path": "data/F202_2018-06-18.csv",
+                    "id": "TODO_456",
+                    "labels": [
+                        {
+                            "start_time": "1900-01-01T05:07:10.825020+00:00",
+                            "end_time": "1900-01-01T06:18:21.373460+00:00",
+                            "behavior": "Stalk"
+                        },
+                        {
+                            "start_time": "1900-01-01T07:08:55.710520+00:00",
+                            "end_time": "1900-01-01T08:35:05.321800+00:00",
+                            "behavior": "Kill Phase 1"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "M201",
+            "entries": []
+        }
+    ],
+    "data_display": [
+        {
+            "input_name": "Acc X [g]",
+            "display_name": "X-axis",
+            "color": "red",
+            "alpha": 0.6,
+            "output_name": "Acc X [g]"
+        },
+        {
+            "input_name": "Acc Y [g]",
+            "display_name": "Y-axis",
+            "color": "black",
+            "alpha": 0.5,
+            "output_name": "Acc Y [g]"
+        },
+        {
+            "input_name": "Acc Z [g]",
+            "display_name": "Z-axis",
+            "color": "blue",
+            "alpha": 0.7,
+            "output_name": "Acc Z [g]"
+        }
+    ],
+    "label_display": [
+        {
+            "display_name": "Stalk",
+            "color": "green",
+            "alpha": 0.2,
+            "output_value": "STALK"
+        },
+        {
+            "display_name": "Kill Phase 1",
+            "color": "purple",
+            "alpha": 0.2,
+            "output_value": "KILL"
+        },
+        {
+            "display_name": "Kill Phase 2",
+            "color": "green",
+            "alpha": 0.2,
+            "output_value": "KILL_PHASE_2"
+        },
+        {
+            "display_name": "Feed",
+            "color": "blue",
+            "alpha": 0.2,
+            "output_value": "FEED"
+        },
+        {
+            "display_name": "Walk",
+            "color": "red",
+            "alpha": 0.2,
+            "output_value": "WALK"
+        }
+    ]
+}
