@@ -260,6 +260,10 @@ class Viewer(tk.Frame):
         self.canvas.draw_idle()
 
     def set_y_limits(self):
+        # TODO: move this to the project config?
+        if True:
+            self.current_ylim = [-5, 5]
+            return
         # Dynamically set Y-limits based on the min and max of the configured data axes
         y_min, y_max = None, None
 
