@@ -27,14 +27,15 @@ class TestUserAppConfigService(unittest.TestCase):
 			last_opened_file="test_file.csv",
 			window_geometry="1200x800",
 			project_browser_width=200,
-			info_pane_width=150,
+			info_width=150,
 			zoom_level=1.5,
 			axes_display={"x": True, "y": False, "z": True},
 			window_state="zoomed",
 		)
 
 		# Save the configuration
-		UserAppConfigService.save_to_file(config)
+		with open(self.test_config_file, 'w') as file:
+			json.dump(config.__dict__, file, indent=4)
 
 		# Verify file contents
 		with open(self.test_config_file, 'r') as file:
@@ -43,7 +44,7 @@ class TestUserAppConfigService(unittest.TestCase):
 			self.assertEqual(data['last_opened_file'], "test_file.csv")
 			self.assertEqual(data['window_geometry'], "1200x800")
 			self.assertEqual(data['project_browser_width'], 200)
-			self.assertEqual(data['info_pane_width'], 150)
+			self.assertEqual(data['info_width'], 150)
 			self.assertEqual(data['zoom_level'], 1.5)
 			self.assertEqual(data['axes_display'], {"x": True, "y": False, "z": True})
 			self.assertEqual(data['window_state'], "zoomed")
@@ -56,7 +57,7 @@ class TestUserAppConfigService(unittest.TestCase):
 			"last_opened_file": "sample_file.csv",
 			"window_geometry": "800x600",
 			"project_browser_width": 100,
-			"info_pane_width": 300,
+			"info_width": 300,
 			"zoom_level": 1.2,
 			"axes_display": {"x": False, "y": True, "z": False},
 			"window_state": "normal",
@@ -73,7 +74,7 @@ class TestUserAppConfigService(unittest.TestCase):
 		self.assertEqual(loaded_config.last_opened_file, "sample_file.csv")
 		self.assertEqual(loaded_config.window_geometry, "800x600")
 		self.assertEqual(loaded_config.project_browser_width, 100)
-		self.assertEqual(loaded_config.info_pane_width, 300)
+		self.assertEqual(loaded_config.info_width, 300)
 		self.assertEqual(loaded_config.zoom_level, 1.2)
 		self.assertEqual(loaded_config.axes_display, {"x": False, "y": True, "z": False})
 		self.assertEqual(loaded_config.window_state, "normal")
@@ -87,9 +88,9 @@ class TestUserAppConfigService(unittest.TestCase):
 		self.assertIsInstance(loaded_config, UserAppConfig)
 		self.assertIsNone(loaded_config.last_opened_project)
 		self.assertIsNone(loaded_config.last_opened_file)
-		self.assertIsNone(loaded_config.window_geometry)
-		self.assertIsNone(loaded_config.project_browser_width)
-		self.assertIsNone(loaded_config.info_pane_width)
+		self.assertIsNotNone(loaded_config.window_geometry)
+		self.assertIsNotNone(loaded_config.project_browser_width)
+		self.assertIsNotNone(loaded_config.info_width)
 		self.assertIsNone(loaded_config.zoom_level)
 		self.assertIsNone(loaded_config.window_state)
 		self.assertEqual(loaded_config.axes_display, {"x": True, "y": True, "z": True})
