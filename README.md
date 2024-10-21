@@ -22,7 +22,7 @@ Make sure you have the following installed:
 #### Option 1: Using Conda
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/accelscope.git
+   git clone https://github.com/osu-mp/accelscope.git
    cd accelscope
    ```
 
