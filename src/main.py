@@ -3,6 +3,7 @@ import os.path
 import tkinter as tk
 from tkinter import Menu, filedialog
 
+from gui_components.about_dialog import AboutDialog
 from gui_components.info_pane import InfoPane
 from gui_components.hotkey_dialog import HotkeyDialog
 from gui_components.project_browser import ProjectBrowser
@@ -208,7 +209,8 @@ class MainApplication(tk.Tk):
         HotkeyDialog(self)
 
     def show_about(self):
-        pass  # Implement about dialog logic
+        """Display info about this program"""
+        AboutDialog(self)
 
     def setup_logging(self, level=logging.INFO):
         logging.basicConfig(

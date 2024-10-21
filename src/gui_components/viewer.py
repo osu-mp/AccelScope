@@ -260,6 +260,10 @@ class Viewer(tk.Frame):
         self.canvas.draw_idle()
 
     def set_y_limits(self):
+        # TODO: move this to the project config?
+        if True:
+            self.current_ylim = [-5, 5]
+            return
         # Dynamically set Y-limits based on the min and max of the configured data axes
         y_min, y_max = None, None
 
@@ -574,10 +578,10 @@ class Viewer(tk.Frame):
             # Update the label data only when the mouse is released.
             rect = self.rectangles[self.selected_label]
             if self.drag_edge == 'start':
-                new_start_time = mdates.num2date(rect.get_x())
+                new_start_time = mdates.num2date(rect.get_x()).time()  # Only store the time part
                 self.selected_label.start_time = new_start_time
             elif self.drag_edge == 'end':
-                new_end_time = mdates.num2date(rect.get_x() + rect.get_width())
+                new_end_time = mdates.num2date(rect.get_x() + rect.get_width()).time()  # Only store the time part
                 self.selected_label.end_time = new_end_time
 
             self.dragging = False

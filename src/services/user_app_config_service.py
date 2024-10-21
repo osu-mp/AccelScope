@@ -4,14 +4,16 @@ import os
 from models.project_config import ProjectConfig
 from models.user_app_config import UserAppConfig
 
+
 class UserAppConfigService:
     USER_CONFIG_FILE = "user_app_config.json"
 
     def __init__(self):
-        self.config = self.load_from_file(self)
+        self.config = self.load_from_file()
         self.current_project_config = None
         self.get_project_config()
 
+    # @staticmethod
     def save_to_file(self):
         """Saves the user app config to a file."""
         with open(self.USER_CONFIG_FILE, 'w') as file:
@@ -20,12 +22,12 @@ class UserAppConfigService:
 
 
     @staticmethod
-    def load_from_file(self) -> UserAppConfig:
+    def load_from_file() -> UserAppConfig:
         """Loads user app config from a file or returns a new instance if not available."""
-        if os.path.exists(self.USER_CONFIG_FILE):
-            with open(self.USER_CONFIG_FILE, 'r') as file:
+        if os.path.exists(UserAppConfigService.USER_CONFIG_FILE):
+            with open(UserAppConfigService.USER_CONFIG_FILE, 'r') as file:
                 data = json.load(file)
-                logging.debug(f"Loaded app config from {self.USER_CONFIG_FILE}")
+                logging.debug(f"Loaded app config from {UserAppConfigService.USER_CONFIG_FILE}")
                 return UserAppConfig(**data)
         return UserAppConfig()  # Return a new instance with default values if the file does not exist
 

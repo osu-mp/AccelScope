@@ -4,7 +4,7 @@ from tkinter import simpledialog, ttk
 
 class BehaviorSelectionDialog(simpledialog.Dialog):
     """
-    Prompt when user adds a new label to a file. Creates a drop down of available behaviors and
+    Prompt when user adds a new label to a file. Creates a drop-down of available behaviors and
     returns user's selection or None
     """
     def __init__(self, parent, behaviors, title="Select Behavior"):
