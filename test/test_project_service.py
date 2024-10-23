@@ -3,7 +3,9 @@ import tempfile
 import os
 import shutil
 from services.project_service import ProjectService
-from models.project_config import ProjectConfig, FileEntry, DirectoryEntry
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
+from models.project_config import ProjectConfig
 from unittest.mock import patch
 
 

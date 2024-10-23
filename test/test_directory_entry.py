@@ -30,7 +30,9 @@ class TestDirectoryEntry(unittest.TestCase):
                 {
                     "path": "data/F202_2018-05-20.csv",
                     "id": "123",
-                    "labels": []
+                    "labels": [],
+                    "comment": "",
+                    "user_verified": False,
                 }
             ]
         }

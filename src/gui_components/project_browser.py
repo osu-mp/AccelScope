@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from accel_data_parser import AccelDataParser
-from models.project_config import DirectoryEntry, FileEntry
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
 
 
 class ProjectBrowser(tk.Frame):
