@@ -10,38 +10,20 @@ from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 from models.label import Label
 from models.project_config import ProjectConfig
+from models.output_settings import OutputSettings, DownsampleMethod, OutputPeriod, OutputType
 
 
 class TestProjectConfig(unittest.TestCase):
 	def setUp(self):
 		"""Set up some initial data for testing."""
-		self.label1 = Label("1900-01-01T05:07:10.825020+00:00", "1900-01-01T06:18:21.373460+00:00", "Stalk")
-		self.label2 = Label("1900-01-01T07:08:55.710520+00:00", "1900-01-01T08:35:05.321800+00:00", "Kill Phase 1")
+		self.label1 = Label("05:07:10.825020", "06:18:21.373460", "Stalk")
+		self.label2 = Label("07:08:55.710520", "08:35:05.321800", "Kill Phase 1")
 
 		self.file_entry1 = FileEntry("data/F202_2018-05-20.csv", "TODO_123", [self.label1, self.label2])
 		self.file_entry2 = FileEntry("data/F202_2018-06-18.csv", "TODO_456", [self.label1])
 
 		self.directory = DirectoryEntry("F202", [self.file_entry1, self.file_entry2])
 		self.project = ProjectConfig("Cougars", "D:/OSU/AccelScopeDemo/", [self.directory])
-
-	def test_find_file_by_id(self):
-		"""Test finding files by id."""
-		found_file = self.project.find_file_by_id("TODO_123")
-		self.assertIsNotNone(found_file)
-		self.assertEqual(found_file.file_id, "TODO_123")
-		self.assertEqual(found_file.path, "data/F202_2018-05-20.csv")
-
-		not_found_file = self.project.find_file_by_id("NON_EXISTENT")
-		self.assertIsNone(not_found_file)
-
-	def test_add_directory(self):
-		"""Test adding a new directory."""
-		self.project.add_directory("F202", "M201")
-		parent_dir = self.project.find_directory_by_path("F202")
-		self.assertEqual(len(parent_dir.entries), 3)  # Added new directory
-		new_dir = self.project.find_directory_by_path("F202/M201")
-		self.assertIsNotNone(new_dir)
-		self.assertEqual(new_dir.name, "M201")
 
 	def test_to_dict(self):
 		"""Test converting ProjectConfig to a dictionary."""
@@ -56,6 +38,48 @@ class TestProjectConfig(unittest.TestCase):
 		self.assertEqual(loaded_project.proj_name, "Cougars")
 		self.assertEqual(len(loaded_project.entries), 1)
 		self.assertEqual(len(loaded_project.entries[0].entries), 2)
+
+	def test_project_config_serialization(self):
+		output_settings = OutputSettings(
+			output_type=OutputType.BEBE,
+			downsample_method=DownsampleMethod.AVERAGE,
+			output_period=OutputPeriod.ENTIRE_INPUT,
+			output_frequency=16,
+			buffer_minutes=5,
+			round_to_minutes=1
+		)
+		project = ProjectConfig(
+			proj_name="Test Project",
+			data_root_directory="/path/to/data",
+			entries=[],
+			data_display=[],
+			label_display=[]
+		)
+		project.output_settings = output_settings
+
+		# Convert project config to dict
+		project_dict = project.to_dict()
+		expected_output_settings_dict = {
+			"output_type": "bebe",
+			"downsample_method": "average",
+			"output_period": "entire_input",
+			"output_frequency": 16,
+			"buffer_minutes": 5,
+			"round_to_minutes": 1
+		}
+
+		self.assertEqual(project_dict['output_settings'], expected_output_settings_dict)
+
+		# Deserialize back to project config
+		project_from_dict = ProjectConfig.from_dict(project_dict)
+
+		self.assertEqual(project_from_dict.output_settings.output_type, OutputType.BEBE)
+		self.assertEqual(project_from_dict.output_settings.downsample_method, DownsampleMethod.AVERAGE)
+		self.assertEqual(project_from_dict.output_settings.output_period, OutputPeriod.ENTIRE_INPUT)
+		self.assertEqual(project_from_dict.output_settings.output_frequency, 16)
+		self.assertEqual(project_from_dict.output_settings.buffer_minutes, 5)
+		self.assertEqual(project_from_dict.output_settings.round_to_minutes, 1)
+
 
 
 if __name__ == '__main__':

@@ -51,23 +51,20 @@ class ProjectService:
         else:
             logging.error("No active project configuration to save.")
 
-    # def prompt_for_project(self, parent):
-    #     """Prompt the user to load or create a new project (e.g., via a file dialog)."""
-    #     response = messagebox.askyesno("Open Project", "Do you want to open an existing project?")
-    #     if response:
-    #         project_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")], title="Open Project File")
-    #         if project_path:
-    #             self.load_project(project_path)
-    #     else:
-    #         # Create a new project using NewProjectDialog
-    #         new_project_dialog = NewProjectDialog(parent=parent)
-    #         new_project_dialog.grab_set()
-    #         parent.wait_window(new_project_dialog)
-    #
-    #         # Load the new project if one was created
-    #         project_path = new_project_dialog.location_entry.get()
-    #         if project_path:
-    #             self.load_project(project_path)
+    def get_output_settings(self):
+        """Return the current output settings from the project configuration."""
+        if self.current_project_config:
+            return self.current_project_config.output_settings
+        logging.warning("No active project configuration loaded.")
+        return None
+
+    def update_output_settings(self, new_output_settings):
+        """Update and save the output settings."""
+        if self.current_project_config:
+            self.current_project_config.output_settings = new_output_settings
+            self.save_project()
+        else:
+            logging.warning("No active project configuration loaded.")
 
     def get_file_entry(self, file_id):
         """Retrieve a file entry by file ID from the current project configuration."""
@@ -271,7 +268,6 @@ class ProjectService:
             data_display=default_data_display,
             label_display=default_label_display
         )
-
 
         # Save the project configuration as a JSON file
         self._save_project_config(location, project_config)
