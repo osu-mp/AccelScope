@@ -1,5 +1,6 @@
-import pandas as pd
+import logging
 import numpy as np
+import pandas as pd
 
 
 class AccelDataParser:
@@ -44,11 +45,13 @@ class AccelDataParser:
 		self.data.drop(columns=['UTC DateTime', 'Milliseconds'], inplace=True)
 
 		# Detect the rollover point where time goes from '23:59:59' to '00:00:00'
-		for i in range(1, len(self.data)):
-			if self.data['TimeOnly'].iloc[i] < self.data['TimeOnly'].iloc[i - 1]:
-				# We've found the rollover point, cut off all data after this point
-				self.data = self.data.iloc[:i]
-				break
+		# TODO: clarify how to handle duplicate/rollover data with Wes
+		# for i in range(1, len(self.data)):
+		# 	if self.data['TimeOnly'].iloc[i] <= self.data['TimeOnly'].iloc[i - 1]:
+		# 		# We've found the rollover point, cut off all data after this point
+		# 		self.data = self.data.iloc[:i]
+		# 		logging.info(f"Day rollover found at {i=}, stopping reading file {self.data.iloc[i-1]=}")
+		# 		break
 
 		# Filter by start_time and end_time if provided
 		if start_time:
