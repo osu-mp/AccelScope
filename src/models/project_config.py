@@ -30,6 +30,7 @@ class ProjectConfig:
         self.entries = entries or []
         self.data_display = data_display or []
         self.label_display = label_display or []
+        self.output_settings = output_settings or OutputSettings()
 
     def to_dict(self):
         """Convert the project config into a dictionary format."""
