@@ -1,3 +1,4 @@
+import getpass
 import json
 import logging
 import math
@@ -34,6 +35,32 @@ class ProjectService:
         except json.JSONDecodeError as e:
             logging.error(f"Error loading project configuration from {project_path}: {e}")
             self.current_project_config = None
+
+        # Validate and resolve the user-specific data root directory
+        if self.current_project_config:
+            self.resolve_data_root_directory()
+
+    def resolve_data_root_directory(self):
+        """Resolve the correct data root directory based on the current user."""
+        if not self.current_project_config:
+            logging.error("No project config loaded")
+            return
+
+        # Get the current OS username
+        username = getpass.getuser()
+
+        # Check if a path is specified for this user, else use the default path
+        data_root = self.current_project_config.data_root_directory.get(username)
+
+        if not data_root:
+            # If user-specific path is not found, fallback to the default
+            data_root = self.current_project_config.data_root_directory.get("default")
+
+        if data_root and os.path.exists(data_root):
+            logging.info(f"Using data root directory for user '{username}': {data_root}")
+            self.current_project_config.data_root_directory["active"] = data_root
+        else:
+            logging.error(f"No valid data root directory found for user '{username}' and no default. Please update the project config.")
 
     def save_project(self):
         """Save the current project configuration to the specified file path."""
@@ -88,7 +115,15 @@ class ProjectService:
     def get_file_path(self, file_entry):
         """Get the full file path for the given file entry."""
         if self.current_project_config:
-            return os.path.join(self.current_project_config.data_root_directory, file_entry.path)
+            # Get the active data root directory
+            active_root = self.current_project_config.data_root_directory.get("active")
+
+            if not active_root:
+                logging.error("Active data root directory not set. Please resolve data root directory.")
+                return None
+
+            return os.path.join(active_root, file_entry.path)
+
         logging.warning(f"No active project configuration loaded.")
         return None
 
@@ -431,3 +466,22 @@ class ProjectService:
         else:
             logging.warning(f"No active project configuration loaded.")
 
+    @staticmethod
+    def get_os_username():
+        """Return the current OS username (used to find data_root per user)."""
+        try:
+            return os.getlogin()
+        except Exception:
+            return getpass.getuser()  # Fallback method
+
+    def get_user_data_path(self):
+        """Return the correct data path based on the current user."""
+        username = self.get_os_username()
+        data_paths = self.current_project_config.data_root_directory
+
+        if username in data_paths:
+            return data_paths[username]
+        elif 'default' in data_paths:
+            return data_paths['default']
+        else:
+            raise FileNotFoundError(f"No path found for user {username} and no default path available.")

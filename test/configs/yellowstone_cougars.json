@@ -1,6 +1,10 @@
 {
     "proj_name": "YellowstoneCougars",
-    "data_root_directory": "D:/OSU/cougar_data",
+    "data_root_directory": {
+        "default": ".",
+        "mpace": "D:/OSU/cougar_data",
+        "wbinde": "TODO get external path from Wes"
+    },
     "entries": [
         {
             "name": "PredationEvents",

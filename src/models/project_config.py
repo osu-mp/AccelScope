@@ -5,6 +5,7 @@ from models.data_display import DataDisplay
 from models.label_display import LabelDisplay
 from models.output_settings import OutputSettings
 
+
 class ProjectConfig:
     """
     High level structure of the project config. Contains a user defined directory structure
@@ -12,16 +13,26 @@ class ProjectConfig:
     file can be listed multiple times in the same project, with different labels attached to each file.
     For example, the same day of activity could contain kill behavior and walking behavior (via trail-cam)
     and have annotations for each.
+    Additionally, it supports user-specific `data_root_directory` paths.
     """
     def __init__(self, proj_name, data_root_directory=None, entries=None, data_display=None, label_display=None,
                  output_settings=None):
+        """
+        :param proj_name: The project name.
+        :param data_root_directory: Dictionary of {user -> path} mappings, or a single path for legacy support.
+        :param entries: List of directory entries for the project.
+        :param data_display: List of data display settings.
+        :param label_display: List of label display settings.
+        :param output_settings: Config for generating output data
+        """
         self.proj_name = proj_name
-        self.data_root_directory = data_root_directory
+        self.data_root_directory = data_root_directory or {"default": None}  # Dict of user -> path
         self.entries = entries or []
         self.data_display = data_display or []
         self.label_display = label_display or []
-        self.output_settings = output_settings or OutputSettings()
+
     def to_dict(self):
+        """Convert the project config into a dictionary format."""
         return {
             "proj_name": self.proj_name,
             "data_root_directory": self.data_root_directory,
@@ -33,14 +44,18 @@ class ProjectConfig:
 
     @staticmethod
     def from_dict(data):
+        """Load the project config from a dictionary."""
         entries = [DirectoryEntry.from_dict(entry) for entry in data.get("entries", [])]
         data_display = [DataDisplay.from_dict(display) for display in data.get("data_display", [])]
         label_display = [LabelDisplay.from_dict(display) for display in data.get("label_display", [])]
         output_settings = OutputSettings.from_dict(data.get("output_settings", {}))
 
+        # Data root directory can be a dict of user -> path or a single path for backward compatibility
+        data_root_directory = data.get("data_root_directory", {"default": None})
+
         return ProjectConfig(
             proj_name=data['proj_name'],
-            data_root_directory=data['data_root_directory'],
+            data_root_directory=data_root_directory,
             entries=entries,
             data_display=data_display,
             label_display=label_display,
@@ -53,29 +68,18 @@ class ProjectConfig:
         with open(file_path, 'r') as file:
             data = json.load(file)
             return ProjectConfig.from_dict(data)
-#
-    def find_directory_by_path(self, path):
-        logging.debug(f"Finding directory by path: {path}")
 
-        # If the path is empty or root, return the top-level entries
-        if not path or path == "/":
-            return self.entries
+    def add_user_path(self, username, path):
+        """Add or update the data path for a specific user."""
+        self.data_root_directory[username] = path
+        logging.info(f"Added/Updated path for user '{username}' with path '{path}'")
 
-        # Split the path and traverse the directory structure
-        segments = path.strip('/').split('/')  # Remove leading/trailing slashes and split into segments
-        current_entries = self.entries
+    def remove_user_path(self, username):
+        """Remove the path associated with a specific user."""
+        if username in self.data_root_directory:
+            del self.data_root_directory[username]
+            logging.info(f"Removed path for user '{username}'")
 
-        # Traverse the path from the top-level entries
-        for segment in segments:
-            found = False
-            for entry in current_entries:
-                if isinstance(entry, DirectoryEntry) and entry.name == segment:
-                    current_entries = entry.entries
-                    found = True
-                    break
-            if not found:
-                logging.error(f"Directory '{segment}' not found in path.")
-                return None  # If no matching directory is found, return None
-
-        # Return the final DirectoryEntry object instead of the list of entries
-        return entry if isinstance(entry, DirectoryEntry) else None
+    def get_user_path(self, username):
+        """Get the data path for a given user, fallback to default if available."""
+        return self.data_root_directory.get(username, self.data_root_directory.get("default", None))
