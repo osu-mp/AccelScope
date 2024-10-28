@@ -13,11 +13,14 @@ from gui_components.project_browser import ProjectBrowser
 from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
+from models.label import Label
+from models.output_settings import OutputType
+from output_types.bebe_output import BEBEOutput
 from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
 
-from output_types.bebe_output import BEBEOutput
-from models.output_settings import OutputType
 
 class MainApplication(tk.Tk):
     def __init__(self):
@@ -138,6 +141,7 @@ class MainApplication(tk.Tk):
 
         proj_menu = Menu(self.menu_bar, tearoff=0)
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
+        proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
         edit_menu = Menu(self.menu_bar, tearoff=0)
         edit_menu.add_command(label='Preferences', command=self.edit_preferences)
@@ -204,7 +208,7 @@ class MainApplication(tk.Tk):
         # Set the file entry in the InfoPane
         self.info_pane.set_file_entry(file_entry)
 
-        self.user_app_config_service.set_last_opened_file(file_entry.file_id)
+        self.user_app_config_service.set_last_opened_file(file_entry.id)
 
     def edit_preferences(self):
         pass  # Implement preferences editing logic
@@ -255,6 +259,82 @@ class MainApplication(tk.Tk):
             self.start_output_generation(output_settings, output_directory)
         else:
             logging.info("Output generation canceled or incomplete settings.")
+
+    def check_project_inputs(self):
+        """
+        Validate the project configuration:
+        - Verify the project root directory exists.
+        - Ensure all referenced CSV files are accessible.
+        - Validate that each label's start and end times are correct.
+        - Logs and displays messages for any warnings or errors.
+        """
+        logging.info("Starting project configuration validation...")
+
+        # 1. Verify the project root directory
+        try:
+            root_directory = self.project_service.get_user_data_path()
+            if not os.path.isdir(root_directory):
+                error_msg = f"Project root directory does not exist: {root_directory}"
+                logging.error(error_msg)
+                tk.messagebox.showerror("Validation Error", error_msg)
+                return
+            logging.info(f"Project root directory exists: {root_directory}")
+        except Exception as e:
+            logging.error(f"Error resolving root directory: {e}")
+            tk.messagebox.showerror("Validation Error", f"Error resolving root directory: {e}")
+            return
+
+        # 2. Verify all referenced CSV files
+        missing_files = []
+        label_errors = []
+        for entry in self.project_service.get_entries():
+            self._validate_entry_files(entry, missing_files, label_errors)
+
+        # Display missing files
+        if missing_files:
+            missing_files_message = "\n".join(missing_files)
+            logging.error(f"Missing files:\n{missing_files_message}")
+            tk.messagebox.showerror("Validation Error", f"Missing files:\n{missing_files_message}")
+
+        # Display label errors
+        if label_errors:
+            label_errors_message = "\n".join(label_errors)
+            logging.error(f"Label validation issues:\n{label_errors_message}")
+            tk.messagebox.showerror("Label Validation Error", f"Issues with labels:\n{label_errors_message}")
+
+        # Success message if no issues found
+        if not missing_files and not label_errors:
+            logging.info("Validation complete: All files and labels are valid.")
+            tk.messagebox.showinfo("Validation Complete", "All files and labels are valid.")
+
+    def _validate_entry_files(self, entry, missing_files, label_errors):
+        """
+        Recursively checks each entry to ensure files exist and validates labels.
+
+        :param entry: DirectoryEntry or FileEntry to validate.
+        :param missing_files: List to collect paths of missing files.
+        :param label_errors: List to collect validation errors for labels.
+        """
+        if isinstance(entry, DirectoryEntry):
+            for sub_entry in entry.entries:
+                self._validate_entry_files(sub_entry, missing_files, label_errors)
+
+        elif isinstance(entry, FileEntry):
+            # Use ProjectService to get the full path of the file
+            file_path = self.project_service.get_file_path(entry)
+            if not os.path.isfile(file_path):
+                missing_files.append(f"{file_path} (ID: {entry.id})")
+                logging.warning(f"Missing file: {file_path}")
+
+            # Validate labels
+            for label_data in entry.labels:
+                if isinstance(label_data, dict):  # Only attempt validation if it's a dictionary
+                    try:
+                        Label.from_dict(label_data)  # Validate via Label class
+                    except ValueError as e:
+                        error_msg = f"Error in file {entry.path} - {str(e)}"
+                        label_errors.append(error_msg)
+                        logging.warning(error_msg)
 
     def start_output_generation(self, output_settings, output_directory):
         # Open the progress dialog
