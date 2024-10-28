@@ -1,11 +1,14 @@
 import logging
 import os.path
+import threading
 import tkinter as tk
 from tkinter import Menu, filedialog
 
 from gui_components.about_dialog import AboutDialog
 from gui_components.info_pane import InfoPane
+from gui_components.generate_output_dialog import GenerateOutputDialog
 from gui_components.hotkey_dialog import HotkeyDialog
+from gui_components.output_progress_dialog import OutputProgressDialog
 from gui_components.project_browser import ProjectBrowser
 from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
@@ -13,6 +16,8 @@ from gui_components.new_project_dialog import NewProjectDialog
 from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
 
+from output_types.bebe_output import BEBEOutput
+from models.output_settings import OutputType
 
 class MainApplication(tk.Tk):
     def __init__(self):
@@ -234,7 +239,69 @@ class MainApplication(tk.Tk):
         logging.info(msg)
 
     def generate_project_output(self):
-        raise Exception("TODO")
+        # Open the GenerateOutputDialog
+        output_dialog = GenerateOutputDialog(self)
+        output_dialog.transient(self)
+        output_dialog.grab_set()
+        self.wait_window(output_dialog)
+
+        # Retrieve the output settings from the dialog after it closes
+        output_settings = output_dialog.output_settings
+        output_directory = output_dialog.output_directory
+
+        if output_settings and output_directory:
+            # Initialize the output generation process
+            logging.info("Starting output generation...")
+            self.start_output_generation(output_settings, output_directory)
+        else:
+            logging.info("Output generation canceled or incomplete settings.")
+
+    def start_output_generation(self, output_settings, output_directory):
+        # Open the progress dialog
+        progress_dialog = OutputProgressDialog(self)
+        progress_dialog.transient(self)
+        progress_dialog.grab_set()
+
+        # Run the output generation in a separate thread to keep GUI responsive
+        self.after(100, lambda: self.generate_output_files(output_settings, output_directory, progress_dialog))
+
+    def generate_output_files(self, output_settings, output_directory, progress_dialog):
+        def generate():
+            try:
+                # Instantiate and configure output class based on output type
+                output_class = get_output_class(output_settings.output_type)
+                output_instance = output_class(output_settings, output_directory)
+
+                for step in output_instance.generate():
+                    if progress_dialog.cancelled:
+                        logging.info("Output generation canceled by user.")
+                        break
+                    # Update progress if needed
+
+                if not progress_dialog.cancelled:
+                    logging.info("Output generation completed successfully.")
+                progress_dialog.destroy()
+            except Exception as e:
+                logging.error(f"Error during output generation: {e}")
+                progress_dialog.destroy()
+
+        threading.Thread(target=generate, daemon=True).start()
+
+    @staticmethod
+    def get_output_class(output_type: OutputType):
+        """
+        Returns the appropriate output generator class based on the provided output type.
+
+        :param output_type: The output type (enum) from OutputSettings.
+        :return: A class implementing OutputGeneratorInterface.
+        :raises ValueError: If no class is found for the given output type.
+        """
+        if output_type == OutputType.BEBE:
+            return BEBEOutput
+        # Future output types can be added here as elif blocks.
+
+        raise ValueError(f"No output class found for output type: {output_type}")
+
 
 if __name__ == '__main__':
     app = MainApplication()

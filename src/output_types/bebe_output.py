@@ -1,4 +1,4 @@
-from output_interface import OutputGeneratorInterface
+from output_types.output_interface import OutputGeneratorInterface
 from models.output_settings import OutputSettings
 from models.project_config import ProjectConfig
 import os
