@@ -291,7 +291,7 @@ class Viewer(tk.Frame):
         :return:
         """
         if self.file_entry:
-            self.project_service.update_labels(self.file_entry.file_id, self.labels)
+            self.project_service.update_labels(self.file_entry.id, self.labels)
         else:
             logging.warning("Unable to save labels to project config as no file entry found")
 

@@ -210,7 +210,7 @@ class InfoPane(tk.Frame):
             self.current_file_entry.user_verified = self.user_verified_var.get()
             self.parent.set_status(f"User verified status changed to: {self.current_file_entry.user_verified}")
             self.project_service.save_project()
-            self.parent.project_browser.update_tree_item_color(self.current_file_entry.file_id,
+            self.parent.project_browser.update_tree_item_color(self.current_file_entry.id,
                                                                self.current_file_entry.user_verified)
 
     @staticmethod

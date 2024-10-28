@@ -82,10 +82,10 @@ class TestProjectService(unittest.TestCase):
         key = "hardcoded_uuid"
         file_entry = FileEntry(path="F202_27905_010518_072219/MotionData_27905/2018/06 Jun/09/2018-06-09.csv")
         self.project_service.add_file("F202_27905_010518_072219", file_entry)
-        file_entry.file_id = key
+        file_entry.id = key
         retrieved_entry = self.project_service.get_file_entry(key)
         self.assertIsNotNone(retrieved_entry)
-        self.assertEqual(retrieved_entry.file_id, key)
+        self.assertEqual(retrieved_entry.id, key)
 
     def test_get_file_path(self):
         # Add a file and get its full path

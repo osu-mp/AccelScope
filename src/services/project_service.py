@@ -93,22 +93,22 @@ class ProjectService:
         else:
             logging.warning("No active project configuration loaded.")
 
-    def get_file_entry(self, file_id):
+    def get_file_entry(self, id):
         """Retrieve a file entry by file ID from the current project configuration."""
         if self.current_project_config:
-            return self.find_file_by_id(file_id)
+            return self.find_file_by_id(id)
         logging.warning(f"No active project configuration loaded.")
         return None
 
-    def update_labels(self, file_id, labels):
+    def update_labels(self, id, labels):
         """Update the labels for a specific file entry by file ID and save the changes."""
         if self.current_project_config:
-            file_entry = self.find_file_by_id(file_id)
+            file_entry = self.find_file_by_id(id)
             if file_entry:
                 file_entry.set_labels(labels)
                 self.save_project()
             else:
-                logging.error(f"File with ID {file_id} not found.")
+                logging.error(f"File with ID {id} not found.")
         else:
             logging.warning(f"No active project configuration loaded.")
 
@@ -201,8 +201,8 @@ class ProjectService:
             return
 
         # Generate a unique ID for the file entry
-        unique_id = self._generate_unique_file_id()
-        file_entry.file_id = unique_id
+        unique_id = self._generate_unique_id()
+        file_entry.id = unique_id
 
         # Add the file to the specified parent directory path
         parent_dir, is_root = self.find_directory_by_path(parent_full_path)
@@ -320,38 +320,38 @@ class ProjectService:
             logging.error(f"Failed to save project config to {location}: {e}")
             raise
 
-    def _generate_unique_file_id(self):
+    def _generate_unique_id(self):
         """Generate a unique file ID that does not already exist in the project configuration."""
         while True:
             # Generate a simple unique ID
             unique_id = str(uuid.uuid4())[:8]  # Use the first 8 characters of UUID for simplicity
 
             # Check if the generated ID already exists
-            if not self._is_file_id_exists(unique_id):
+            if not self._does_id_exist(unique_id):
                 return unique_id
 
-    def _is_file_id_exists(self, file_id):
+    def _does_id_exist(self, id):
         """Check if the given file ID already exists in the current project configuration."""
         if not self.current_project_config:
             return False
 
-        return self.find_file_by_id(file_id) is not None
+        return self.find_file_by_id(id) is not None
 
-    def find_file_by_id(self, file_id):
+    def find_file_by_id(self, id):
         """Retrieve a file entry by file ID from the current project configuration."""
         if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
             return None
 
-        return self._search_file_by_id(self.current_project_config.entries, file_id)
+        return self._search_file_by_id(self.current_project_config.entries, id)
 
-    def _search_file_by_id(self, entries, file_id):
+    def _search_file_by_id(self, entries, id):
         """Recursively searches the directory structure to find a file by its id."""
         for entry in entries:
-            if isinstance(entry, FileEntry) and entry.file_id == file_id:
+            if isinstance(entry, FileEntry) and entry.id == id:
                 return entry
             elif isinstance(entry, DirectoryEntry):
-                found = self._search_file_by_id(entry.entries, file_id)
+                found = self._search_file_by_id(entry.entries, id)
                 if found:
                     return found
         return None
@@ -416,53 +416,53 @@ class ProjectService:
         """
         return math.ceil(1000 / self.input_freq)
 
-    def delete_file_by_id(self, file_id):
+    def delete_file_by_id(self, id):
         """Delete a file entry from the project configuration by file ID."""
         if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
             return
 
         # Find the file entry by its ID
-        file_entry = self.find_file_by_id(file_id)
+        file_entry = self.find_file_by_id(id)
 
         if file_entry:
             # Find the parent directory of the file entry
-            parent_entry = self.find_parent_directory_of_file(file_id, self.current_project_config.entries)
+            parent_entry = self.find_parent_directory_of_file(id, self.current_project_config.entries)
 
             if parent_entry and isinstance(parent_entry, DirectoryEntry):
                 # Remove the file entry from the parent directory
                 parent_entry.entries.remove(file_entry)
                 self.save_project()  # Persist the changes
-                logging.info(f"Deleted file with ID '{file_id}' from project configuration.")
+                logging.info(f"Deleted file with ID '{id}' from project configuration.")
             else:
-                logging.warning(f"Parent directory for file with ID '{file_id}' not found.")
+                logging.warning(f"Parent directory for file with ID '{id}' not found.")
         else:
-            logging.warning(f"File with ID '{file_id}' not found.")
+            logging.warning(f"File with ID '{id}' not found.")
 
-    def find_parent_directory_of_file(self, file_id, entries):
+    def find_parent_directory_of_file(self, id, entries):
         """Recursively find the parent directory of a file entry by file ID."""
         for entry in entries:
-            if isinstance(entry, FileEntry) and entry.file_id == file_id:
+            if isinstance(entry, FileEntry) and entry.id == id:
                 return None  # If this is the file entry, return None (it has no parent)
             elif isinstance(entry, DirectoryEntry):
-                if any(isinstance(sub_entry, FileEntry) and sub_entry.file_id == file_id for sub_entry in
+                if any(isinstance(sub_entry, FileEntry) and sub_entry.id == id for sub_entry in
                        entry.entries):
                     return entry  # Return the parent directory if the file is found here
                 # Recursively search in sub-directories
-                parent = self.find_parent_directory_of_file(file_id, entry.entries)
+                parent = self.find_parent_directory_of_file(id, entry.entries)
                 if parent:
                     return parent
         return None
 
-    def update_file_comment(self, file_id, comment):
+    def update_file_comment(self, id, comment):
         """Update the comment for a specific file entry by file ID."""
         if self.current_project_config:
-            file_entry = self.find_file_by_id(file_id)
+            file_entry = self.find_file_by_id(id)
             if file_entry:
                 file_entry.comment = comment
                 self.save_project()
             else:
-                logging.error(f"File with ID {file_id} not found.")
+                logging.error(f"File with ID {id} not found.")
         else:
             logging.warning(f"No active project configuration loaded.")
 
