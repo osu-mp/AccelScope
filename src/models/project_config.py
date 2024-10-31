@@ -1,7 +1,7 @@
 import json
 import logging
 from models.directory_entry import DirectoryEntry
-from models.data_display import DataDisplay
+from models.input_settings import InputSettings
 from models.label_display import LabelDisplay
 from models.output_settings import OutputSettings
 
@@ -15,22 +15,22 @@ class ProjectConfig:
     and have annotations for each.
     Additionally, it supports user-specific `data_root_directory` paths.
     """
-    def __init__(self, proj_name, data_root_directory=None, entries=None, data_display=None, label_display=None,
-                 output_settings=None):
+    def __init__(self, proj_name, data_root_directory=None, entries=None, label_display=None,
+                 output_settings=None, input_settings=None):
         """
         :param proj_name: The project name.
         :param data_root_directory: Dictionary of {user -> path} mappings, or a single path for legacy support.
         :param entries: List of directory entries for the project.
-        :param data_display: List of data display settings.
         :param label_display: List of label display settings.
-        :param output_settings: Config for generating output data
+        :param output_settings: Config for generating output data.
+        :param input_settings: Config for reading input data.
         """
         self.proj_name = proj_name
-        self.data_root_directory = data_root_directory or {"default": None}  # Dict of user -> path
+        self.data_root_directory = data_root_directory or {"default": None}
         self.entries = entries or []
-        self.data_display = data_display or []
         self.label_display = label_display or []
         self.output_settings = output_settings or OutputSettings()
+        self.input_settings = input_settings or InputSettings()  # Initialize with a default InputSettings instance
 
     def to_dict(self):
         """Convert the project config into a dictionary format."""
@@ -38,29 +38,30 @@ class ProjectConfig:
             "proj_name": self.proj_name,
             "data_root_directory": self.data_root_directory,
             "entries": [entry.to_dict() for entry in self.entries],
-            "data_display": [display.to_dict() for display in self.data_display],
             "label_display": [display.to_dict() for display in self.label_display],
-            "output_settings": self.output_settings.to_dict()
+            "output_settings": self.output_settings.to_dict(),
+            "input_settings": self.input_settings.to_dict()  # Add input settings to output dict
         }
 
     @staticmethod
     def from_dict(data):
         """Load the project config from a dictionary."""
         entries = [DirectoryEntry.from_dict(entry) for entry in data.get("entries", [])]
-        data_display = [DataDisplay.from_dict(display) for display in data.get("data_display", [])]
         label_display = [LabelDisplay.from_dict(display) for display in data.get("label_display", [])]
         output_settings = OutputSettings.from_dict(data.get("output_settings", {}))
 
-        # Data root directory can be a dict of user -> path or a single path for backward compatibility
         data_root_directory = data.get("data_root_directory", {"default": None})
+
+        input_settings_data = data.get("input_settings", {})
+        input_settings = InputSettings.from_dict(input_settings_data)
 
         return ProjectConfig(
             proj_name=data['proj_name'],
             data_root_directory=data_root_directory,
             entries=entries,
-            data_display=data_display,
             label_display=label_display,
-            output_settings=output_settings
+            output_settings=output_settings,
+            input_settings=input_settings
         )
 
     @staticmethod

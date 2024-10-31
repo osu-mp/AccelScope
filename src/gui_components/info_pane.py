@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 import tkinter as tk
 from tkinter import ttk
@@ -9,10 +10,12 @@ class InfoPane(tk.Frame):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.project_service = project_service
-        self.current_file_entry = None  # Store the current FileEntry being viewed
-
+        self.current_file_entry = None
         self.viewer = self.parent.viewer
         self.axis_vars = {}
+
+        # Retrieve the input settings and initialize the input interface to access display info
+        self.input_interface = self.viewer.get_input_interface()
 
         # Store the project config for accessing the data_display information
         self.project_config = self.project_service.get_project_config()
@@ -72,13 +75,13 @@ class InfoPane(tk.Frame):
         self.labels['Time'] = tk.Label(self.cursor_report_frame, text="-", anchor="e")
         self.labels['Time'].grid(row=0, column=1, sticky="e")
 
-        # Add labels for each data display item
-        if self.project_config:
-            for idx, display in enumerate(self.project_config.data_display, start=1):
-                data_label = tk.Label(self.cursor_report_frame, text=f"{display.display_name}:", anchor="w", width=4)
-                data_label.grid(row=idx, column=0, sticky="w")
-                self.labels[display.input_name] = tk.Label(self.cursor_report_frame, text="-", anchor="e", width=6)
-                self.labels[display.input_name].grid(row=idx, column=1, sticky="e")
+        # Add labels for each axis based on the AxesConfig from input interface
+        axes_config = self.input_interface.get_axes_config()
+        for idx, axis_display in enumerate(axes_config.axis_displays, start=1):
+            data_label = tk.Label(self.cursor_report_frame, text=f"{axis_display.display_name}:", anchor="w", width=4)
+            data_label.grid(row=idx, column=0, sticky="w")
+            self.labels[axis_display.input_name] = tk.Label(self.cursor_report_frame, text="-", anchor="e", width=6)
+            self.labels[axis_display.input_name].grid(row=idx, column=1, sticky="e")
 
     def update_cursor_report(self, time, data_values):
         """Update the labels to display current cursor position values."""
@@ -102,31 +105,27 @@ class InfoPane(tk.Frame):
         self.data_display_vars.clear()
 
     def create_data_display_checkboxes(self):
-        """Dynamically creates checkboxes for each data_display item from the project config."""
+        """Create checkboxes for each axis in AxesConfig."""
         tk.Label(self, text="Axis Control").pack(fill=tk.X, pady=5)
-
-        # Create a container for the checkboxes
         self.checkbox_container = tk.Frame(self)
         self.checkbox_container.pack(fill=tk.NONE, pady=5, anchor=tk.N)
 
-        # Iterate through each data_display entry in the project config
-        project_config = self.project_service.get_project_config()
-        if not project_config:
-            return
-        for display in project_config.data_display:
+        axes_config = self.input_interface.get_axes_config()
+        for axis_display in axes_config.axis_displays:
             var = tk.BooleanVar(value=True)
-            self.axis_vars[display.input_name] = var
+            self.axis_vars[axis_display.input_name] = var
 
-            checkbox_frame = tk.Frame(self.checkbox_container, highlightbackground=display.color, highlightcolor=display.color,
-                                      highlightthickness=2, bd=0, padx=1, pady=1)
+            checkbox_frame = tk.Frame(self.checkbox_container, highlightbackground=axis_display.color,
+                                      highlightcolor=axis_display.color, highlightthickness=2, bd=0, padx=1, pady=1)
             checkbox_frame.pack(anchor=tk.NW, pady=2, fill=tk.X)
-
-            checkbox = tk.Checkbutton(checkbox_frame, text=display.display_name, variable=var, command=self.update_viewer)
+            checkbox = tk.Checkbutton(checkbox_frame, text=axis_display.display_name, variable=var,
+                                      command=self.update_viewer)
             checkbox.pack(anchor=tk.W, padx=5)
 
     def update_viewer(self):
         """Update the viewer when axis checkboxes are changed."""
         active_axes = [axis for axis, var in self.axis_vars.items() if var.get()]
+        logging.info(f"Viewer updated with active axes: {', '.join(active_axes) if active_axes else 'None selected'}")
         self.viewer.set_active_axes(active_axes)
 
     def create_legend(self):

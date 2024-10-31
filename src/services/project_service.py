@@ -7,6 +7,7 @@ import uuid
 from models.data_display import DataDisplay
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
+from models.input_settings import InputSettings
 from models.label_display import LabelDisplay
 from models.project_config import ProjectConfig
 
@@ -485,3 +486,7 @@ class ProjectService:
             return data_paths['default']
         else:
             raise FileNotFoundError(f"No path found for user {username} and no default path available.")
+
+    def get_input_settings(self) -> InputSettings:
+        """Return the input settings from the project configuration."""
+        return self.project_config.input_settings if self.project_config else None

@@ -127,29 +127,6 @@
             ]
         }
     ],
-    "data_display": [
-        {
-            "input_name": "Acc X [g]",
-            "display_name": "X-axis",
-            "color": "red",
-            "alpha": 0.6,
-            "output_name": "Acc X [g]"
-        },
-        {
-            "input_name": "Acc Y [g]",
-            "display_name": "Y-axis",
-            "color": "black",
-            "alpha": 0.5,
-            "output_name": "Acc Y [g]"
-        },
-        {
-            "input_name": "Acc Z [g]",
-            "display_name": "Z-axis",
-            "color": "blue",
-            "alpha": 0.7,
-            "output_name": "Acc Z [g]"
-        }
-    ],
     "label_display": [
         {
             "display_name": "Stalk",
@@ -181,5 +158,17 @@
             "alpha": 0.2,
             "output_value": "WALK"
         }
-    ]
+    ],
+    "output_settings": {
+        "output_type": "bebe",
+        "downsample_method": "average",
+        "output_period": "entire_input",
+        "output_frequency": 16,
+        "buffer_minutes": 5,
+        "round_to_minutes": 1
+    },
+    "input_settings": {
+        "input_type": "VectronicMotion",
+        "input_frequency": 16
+    }
 }
