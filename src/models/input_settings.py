@@ -15,7 +15,8 @@ class InputSettings:
     Defines settings for reading and processing input files.
     Configurable settings include input type and frequency.
     """
-    def __init__(self, input_type: InputType, input_frequency: int):
+    def __init__(self, input_type: InputType = InputType.VECTRONIC_MOTION,
+                 input_frequency: int = 16):
         """
         Initialize input settings with specific type and frequency.
 

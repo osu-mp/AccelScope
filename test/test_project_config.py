@@ -52,7 +52,6 @@ class TestProjectConfig(unittest.TestCase):
 			proj_name="Test Project",
 			data_root_directory="/path/to/data",
 			entries=[],
-			data_display=[],
 			label_display=[]
 		)
 		project.output_settings = output_settings

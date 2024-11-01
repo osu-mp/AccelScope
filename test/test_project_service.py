@@ -34,7 +34,6 @@ class TestProjectService(unittest.TestCase):
                 "default": self.test_dir
             },
             entries=[DirectoryEntry("F202_27905_010518_072219")],
-            data_display=[],
             label_display=[],
             output_settings=self.output_settings
         )
@@ -52,7 +51,10 @@ class TestProjectService(unittest.TestCase):
         # Write project configuration to temporary project path
         with open(self.project_path, 'w') as f:
             f.write(f'{{"proj_name": "TestProject",'
-                    f' "data_root_directory": {{"default": "{self.test_dir.replace("\\", "/")}" }}, "entries": [], "output_settings": {{"output_type": "bebe", "downsample_method": "average", "period": "entire_input", "frequency": 4}}}}')
+                    f' "data_root_directory": {{"default": "{self.test_dir.replace("\\", "/")}" }},'
+                    f' "entries": [],'
+                    f' "output_settings": {{"output_type": "bebe", "downsample_method": "average", "period": "entire_input", "frequency": 4}},'
+                    f' "input_settings": {{"input_type": "VectronicMotion", "input_frequency": 16}}}}')
 
         # Load the project and check that the name matches
         with patch("os.path.exists", return_value=True):
