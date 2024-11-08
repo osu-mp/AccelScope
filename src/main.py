@@ -1,15 +1,23 @@
 import logging
 import os.path
+import threading
 import tkinter as tk
 from tkinter import Menu, filedialog
 
 from gui_components.about_dialog import AboutDialog
 from gui_components.info_pane import InfoPane
+from gui_components.generate_output_dialog import GenerateOutputDialog
 from gui_components.hotkey_dialog import HotkeyDialog
+from gui_components.output_progress_dialog import OutputProgressDialog
 from gui_components.project_browser import ProjectBrowser
 from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
+from models.label import Label
+from models.output_settings import OutputType
+from output_types.bebe_output import BEBEOutput
 from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
 
@@ -133,6 +141,7 @@ class MainApplication(tk.Tk):
 
         proj_menu = Menu(self.menu_bar, tearoff=0)
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
+        proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
         edit_menu = Menu(self.menu_bar, tearoff=0)
         edit_menu.add_command(label='Preferences', command=self.edit_preferences)
@@ -199,7 +208,7 @@ class MainApplication(tk.Tk):
         # Set the file entry in the InfoPane
         self.info_pane.set_file_entry(file_entry)
 
-        self.user_app_config_service.set_last_opened_file(file_entry.file_id)
+        self.user_app_config_service.set_last_opened_file(file_entry.id)
 
     def edit_preferences(self):
         pass  # Implement preferences editing logic
@@ -234,7 +243,145 @@ class MainApplication(tk.Tk):
         logging.info(msg)
 
     def generate_project_output(self):
-        raise Exception("TODO")
+        # Open the GenerateOutputDialog
+        output_dialog = GenerateOutputDialog(self)
+        output_dialog.transient(self)
+        output_dialog.grab_set()
+        self.wait_window(output_dialog)
+
+        # Retrieve the output settings from the dialog after it closes
+        output_settings = output_dialog.output_settings
+        output_directory = output_dialog.output_directory
+
+        if output_settings and output_directory:
+            # Initialize the output generation process
+            logging.info("Starting output generation...")
+            self.start_output_generation(output_settings, output_directory)
+        else:
+            logging.info("Output generation canceled or incomplete settings.")
+
+    def check_project_inputs(self):
+        """
+        Validate the project configuration:
+        - Verify the project root directory exists.
+        - Ensure all referenced CSV files are accessible.
+        - Validate that each label's start and end times are correct.
+        - Logs and displays messages for any warnings or errors.
+        """
+        logging.info("Starting project configuration validation...")
+
+        # 1. Verify the project root directory
+        try:
+            root_directory = self.project_service.get_user_data_path()
+            if not os.path.isdir(root_directory):
+                error_msg = f"Project root directory does not exist: {root_directory}"
+                logging.error(error_msg)
+                tk.messagebox.showerror("Validation Error", error_msg)
+                return
+            logging.info(f"Project root directory exists: {root_directory}")
+        except Exception as e:
+            logging.error(f"Error resolving root directory: {e}")
+            tk.messagebox.showerror("Validation Error", f"Error resolving root directory: {e}")
+            return
+
+        # 2. Verify all referenced CSV files
+        missing_files = []
+        label_errors = []
+        for entry in self.project_service.get_entries():
+            self._validate_entry_files(entry, missing_files, label_errors)
+
+        # Display missing files
+        if missing_files:
+            missing_files_message = "\n".join(missing_files)
+            logging.error(f"Missing files:\n{missing_files_message}")
+            tk.messagebox.showerror("Validation Error", f"Missing files:\n{missing_files_message}")
+
+        # Display label errors
+        if label_errors:
+            label_errors_message = "\n".join(label_errors)
+            logging.error(f"Label validation issues:\n{label_errors_message}")
+            tk.messagebox.showerror("Label Validation Error", f"Issues with labels:\n{label_errors_message}")
+
+        # Success message if no issues found
+        if not missing_files and not label_errors:
+            logging.info("Validation complete: All files and labels are valid.")
+            tk.messagebox.showinfo("Validation Complete", "All files and labels are valid.")
+
+    def _validate_entry_files(self, entry, missing_files, label_errors):
+        """
+        Recursively checks each entry to ensure files exist and validates labels.
+
+        :param entry: DirectoryEntry or FileEntry to validate.
+        :param missing_files: List to collect paths of missing files.
+        :param label_errors: List to collect validation errors for labels.
+        """
+        if isinstance(entry, DirectoryEntry):
+            for sub_entry in entry.entries:
+                self._validate_entry_files(sub_entry, missing_files, label_errors)
+
+        elif isinstance(entry, FileEntry):
+            # Use ProjectService to get the full path of the file
+            file_path = self.project_service.get_file_path(entry)
+            if not os.path.isfile(file_path):
+                missing_files.append(f"{file_path} (ID: {entry.id})")
+                logging.warning(f"Missing file: {file_path}")
+
+            # Validate labels
+            for label_data in entry.labels:
+                if isinstance(label_data, dict):  # Only attempt validation if it's a dictionary
+                    try:
+                        Label.from_dict(label_data)  # Validate via Label class
+                    except ValueError as e:
+                        error_msg = f"Error in file {entry.path} - {str(e)}"
+                        label_errors.append(error_msg)
+                        logging.warning(error_msg)
+
+    def start_output_generation(self, output_settings, output_directory):
+        # Open the progress dialog
+        progress_dialog = OutputProgressDialog(self)
+        progress_dialog.transient(self)
+        progress_dialog.grab_set()
+
+        # Run the output generation in a separate thread to keep GUI responsive
+        self.after(100, lambda: self.generate_output_files(output_settings, output_directory, progress_dialog))
+
+    def generate_output_files(self, output_settings, output_directory, progress_dialog):
+        def generate():
+            try:
+                # Instantiate and configure output class based on output type
+                output_class = get_output_class(output_settings.output_type)
+                output_instance = output_class(output_settings, output_directory)
+
+                for step in output_instance.generate():
+                    if progress_dialog.cancelled:
+                        logging.info("Output generation canceled by user.")
+                        break
+                    # Update progress if needed
+
+                if not progress_dialog.cancelled:
+                    logging.info("Output generation completed successfully.")
+                progress_dialog.destroy()
+            except Exception as e:
+                logging.error(f"Error during output generation: {e}")
+                progress_dialog.destroy()
+
+        threading.Thread(target=generate, daemon=True).start()
+
+    @staticmethod
+    def get_output_class(output_type: OutputType):
+        """
+        Returns the appropriate output generator class based on the provided output type.
+
+        :param output_type: The output type (enum) from OutputSettings.
+        :return: A class implementing OutputGeneratorInterface.
+        :raises ValueError: If no class is found for the given output type.
+        """
+        if output_type == OutputType.BEBE:
+            return BEBEOutput
+        # Future output types can be added here as elif blocks.
+
+        raise ValueError(f"No output class found for output type: {output_type}")
+
 
 if __name__ == '__main__':
     app = MainApplication()

@@ -3,9 +3,11 @@ import tempfile
 import os
 import shutil
 from services.project_service import ProjectService
-from models.project_config import ProjectConfig, FileEntry, DirectoryEntry
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
+from models.project_config import ProjectConfig
+from models.output_settings import OutputSettings, OutputType, DownsampleMethod, OutputPeriod
 from unittest.mock import patch
-
 
 class TestProjectService(unittest.TestCase):
 
@@ -17,16 +19,29 @@ class TestProjectService(unittest.TestCase):
         # Create an instance of ProjectService and mock project configuration
         self.project_service = ProjectService()
 
-        # Initialize ProjectConfig with temp directory as root
+        # Initialize OutputSettings with defaults
+        self.output_settings = OutputSettings(
+            output_type=OutputType.BEBE,
+            downsample_method=DownsampleMethod.AVERAGE,
+            output_period=OutputPeriod.ENTIRE_INPUT,
+            output_frequency=4
+        )
+
+        # Initialize ProjectConfig with temp directory as root and mock output settings
         self.project_config = ProjectConfig(
             proj_name="TestProject",
-            data_root_directory=self.test_dir,
+            data_root_directory={
+                "default": self.test_dir
+            },
             entries=[DirectoryEntry("F202_27905_010518_072219")],
-            data_display=[],
-            label_display=[]
+            label_display=[],
+            output_settings=self.output_settings
         )
+
+        # Set the project config in the service and resolve the data root directory
         self.project_service.current_project_config = self.project_config
         self.project_service.current_project_path = self.project_path
+        self.project_service.resolve_data_root_directory()  # Ensure the root directory is resolved
 
     def tearDown(self):
         # Remove the temporary directory after each test
@@ -35,7 +50,11 @@ class TestProjectService(unittest.TestCase):
     def test_load_project(self):
         # Write project configuration to temporary project path
         with open(self.project_path, 'w') as f:
-            f.write(r'{"proj_name": "TestProject", "data_root_directory": "' + self.test_dir.replace('\\', '/') + r'", "entries": []}')
+            f.write(f'{{"proj_name": "TestProject",'
+                    f' "data_root_directory": {{"default": "{self.test_dir.replace("\\", "/")}" }},'
+                    f' "entries": [],'
+                    f' "output_settings": {{"output_type": "bebe", "downsample_method": "average", "period": "entire_input", "frequency": 4}},'
+                    f' "input_settings": {{"input_type": "VectronicMotion", "input_frequency": 16}}}}')
 
         # Load the project and check that the name matches
         with patch("os.path.exists", return_value=True):
@@ -65,10 +84,10 @@ class TestProjectService(unittest.TestCase):
         key = "hardcoded_uuid"
         file_entry = FileEntry(path="F202_27905_010518_072219/MotionData_27905/2018/06 Jun/09/2018-06-09.csv")
         self.project_service.add_file("F202_27905_010518_072219", file_entry)
-        file_entry.file_id = key
+        file_entry.id = key
         retrieved_entry = self.project_service.get_file_entry(key)
         self.assertIsNotNone(retrieved_entry)
-        self.assertEqual(retrieved_entry.file_id, key)
+        self.assertEqual(retrieved_entry.id, key)
 
     def test_get_file_path(self):
         # Add a file and get its full path

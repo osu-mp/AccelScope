@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from accel_data_parser import AccelDataParser
-from models.project_config import DirectoryEntry, FileEntry
+from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
 
 
 class ProjectBrowser(tk.Frame):
@@ -106,35 +107,35 @@ class ProjectBrowser(tk.Frame):
             self.project_service.add_file(full_path, file_entry)
 
             # Add the new file to the tree view with values and update its color based on user_verified status
-            self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1], values=(file_entry.file_id,))
-            self.update_tree_item_color(file_entry.file_id, file_entry.user_verified)
+            self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1], values=(file_entry.id,))
+            self.update_tree_item_color(file_entry.id, file_entry.user_verified)
 
             # Open the file in the viewer
             self.parent.open_file(file_entry)
 
-    def update_tree_item_color(self, file_id, user_verified):
+    def update_tree_item_color(self, id, user_verified):
         """Update the color of the tree item based on the user_verified status."""
-        item_id = self.find_tree_item_by_file_id(file_id)
+        item_id = self.find_tree_item_by_id(id)
         if item_id:
             color = "green" if user_verified else "red"
             # Update the tag for the tree item to reflect the new color
             self.tree.item(item_id, tags=(color,))
 
-    def find_tree_item_by_file_id(self, file_id):
+    def find_tree_item_by_id(self, id):
         """Find the tree item ID for the given file ID."""
         # Recursively search through all items in the tree
         for item in self.tree.get_children(''):
-            result = self._search_tree(item, file_id)
+            result = self._search_tree(item, id)
             if result:
                 return result
         return None
 
-    def _search_tree(self, item, file_id):
+    def _search_tree(self, item, id):
         """Helper function to recursively search the tree for a file ID."""
-        if self.tree.item(item, "values") and self.tree.item(item, "values")[0] == file_id:
+        if self.tree.item(item, "values") and self.tree.item(item, "values")[0] == id:
             return item
         for child_item in self.tree.get_children(item):
-            result = self._search_tree(child_item, file_id)
+            result = self._search_tree(child_item, id)
             if result:
                 return result
         return None
@@ -170,7 +171,7 @@ class ProjectBrowser(tk.Frame):
         elif isinstance(entry, FileEntry):
             # Use the file's id as a hidden value for easy lookup later
             color_tag = "green" if entry.user_verified else "red"
-            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.file_id,),
+            self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.id,),
                              tags=(color_tag,))
 
     def on_double_click(self, event):
@@ -179,8 +180,8 @@ class ProjectBrowser(tk.Frame):
         item_values = self.tree.item(selected_item, 'values')
 
         if item_values:
-            file_id = item_values[0]
-            file_entry = self.project_service.find_file_by_id(file_id)
+            id = item_values[0]
+            file_entry = self.project_service.find_file_by_id(id)
 
             if file_entry:
                 self.parent.open_file(file_entry)
@@ -195,8 +196,8 @@ class ProjectBrowser(tk.Frame):
         if not item_values:
             return
 
-        file_id = item_values[0]
-        file_entry = self.project_service.find_file_by_id(file_id)
+        id = item_values[0]
+        file_entry = self.project_service.find_file_by_id(id)
 
         if not file_entry:
             return
@@ -207,7 +208,7 @@ class ProjectBrowser(tk.Frame):
             return
 
         # Remove the file entry from the project configuration
-        self.project_service.delete_file_by_id(file_id)
+        self.project_service.delete_file_by_id(id)
 
         # Remove the item from the tree view
         self.tree.delete(selected_item)

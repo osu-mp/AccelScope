@@ -1,17 +1,9 @@
-[DONE] Wes' folder structure
 Output CSVs
 Output graphs
-[DONE] Report x/y/z/time in info pane
-[DONE] Pan left/right update (include logging)
 Fix labeled action text to match rest of GUI (matplotlib format)
-[DONE] Restore GUI settings at boot (maximized, pane sizes, zoom level)
 Add labels to X (include date) and Y; title
-[DONE] Create unique file ids when files added
-[DONE] Fix bug that creates negative time labels (sort min and max first)
 Import BEBE prediction CSVs into viewer, show human labels vs BEBE predictions
 
-[DONE] Info Pane: Checkbox for 'WB Verified Kill'
-Ensure
 Interface and class for reading data
 Interface and classes for writing data
 
@@ -27,3 +19,13 @@ I'd like to make the input and output of the data generalizable to support other
 -Some mechanism to list all known input and output concrete classes.
 
 What high level considerations should we talk about first?
+
+Comments are not updating when file changes
+
+Wes:
+[DONE] Fix plots to +/- 5 acc  y values
+Combine plots (+- 6 hours)
+
+Future:
+-ability to set 'display-name' per file
+-Put y-limits in project config

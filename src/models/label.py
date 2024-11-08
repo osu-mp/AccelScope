@@ -1,5 +1,6 @@
 from datetime import datetime, time
 
+
 class Label:
     def __init__(self, start_time, end_time, behavior):
         """
@@ -12,15 +13,18 @@ class Label:
         if isinstance(start_time, str):
             self.start_time = datetime.strptime(start_time, "%H:%M:%S.%f").time()
         else:
-            self.start_time = start_time  # Already a time object, assign directly
+            self.start_time = start_time
 
         if isinstance(end_time, str):
             self.end_time = datetime.strptime(end_time, "%H:%M:%S.%f").time()
         else:
-            self.end_time = end_time  # Already a time object, assign directly
+            self.end_time = end_time
 
         self.behavior = behavior
         self.duration = self.calculate_duration()
+
+        # Validate the label upon creation
+        self.validate()
 
     def __str__(self):
         start_time_str = self.start_time.strftime('%H:%M:%S.%f')[:-3]
@@ -28,10 +32,20 @@ class Label:
         return f"{self.behavior} : {start_time_str} - {end_time_str} ({self.duration})"
 
     def calculate_duration(self):
-        # Since we're dealing with only times, we need to convert them to datetime to calculate the duration
+        # Calculate the duration between start and end times
         start_dt = datetime.combine(datetime.min, self.start_time)
         end_dt = datetime.combine(datetime.min, self.end_time)
         return end_dt - start_dt
+
+    def validate(self):
+        """
+        Validate that the label has valid start and end times.
+        - Ensures that the start time is before the end time.
+        - Raises a ValueError if validation fails.
+        """
+        if self.start_time >= self.end_time:
+            raise ValueError(
+                f"Invalid label times: Start time {self.start_time} is not before end time {self.end_time}.")
 
     @staticmethod
     def from_dict(data):

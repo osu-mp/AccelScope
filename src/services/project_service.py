@@ -1,3 +1,4 @@
+import getpass
 import json
 import logging
 import math
@@ -6,6 +7,7 @@ import uuid
 from models.data_display import DataDisplay
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
+from models.input_settings import InputSettings
 from models.label_display import LabelDisplay
 from models.project_config import ProjectConfig
 
@@ -35,6 +37,32 @@ class ProjectService:
             logging.error(f"Error loading project configuration from {project_path}: {e}")
             self.current_project_config = None
 
+        # Validate and resolve the user-specific data root directory
+        if self.current_project_config:
+            self.resolve_data_root_directory()
+
+    def resolve_data_root_directory(self):
+        """Resolve the correct data root directory based on the current user."""
+        if not self.current_project_config:
+            logging.error("No project config loaded")
+            return
+
+        # Get the current OS username
+        username = getpass.getuser()
+
+        # Check if a path is specified for this user, else use the default path
+        data_root = self.current_project_config.data_root_directory.get(username)
+
+        if not data_root:
+            # If user-specific path is not found, fallback to the default
+            data_root = self.current_project_config.data_root_directory.get("default")
+
+        if data_root and os.path.exists(data_root):
+            logging.info(f"Using data root directory for user '{username}': {data_root}")
+            self.current_project_config.data_root_directory["active"] = data_root
+        else:
+            logging.error(f"No valid data root directory found for user '{username}' and no default. Please update the project config.")
+
     def save_project(self):
         """Save the current project configuration to the specified file path."""
         if not self.current_project_path:
@@ -51,47 +79,52 @@ class ProjectService:
         else:
             logging.error("No active project configuration to save.")
 
-    # def prompt_for_project(self, parent):
-    #     """Prompt the user to load or create a new project (e.g., via a file dialog)."""
-    #     response = messagebox.askyesno("Open Project", "Do you want to open an existing project?")
-    #     if response:
-    #         project_path = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json")], title="Open Project File")
-    #         if project_path:
-    #             self.load_project(project_path)
-    #     else:
-    #         # Create a new project using NewProjectDialog
-    #         new_project_dialog = NewProjectDialog(parent=parent)
-    #         new_project_dialog.grab_set()
-    #         parent.wait_window(new_project_dialog)
-    #
-    #         # Load the new project if one was created
-    #         project_path = new_project_dialog.location_entry.get()
-    #         if project_path:
-    #             self.load_project(project_path)
+    def get_output_settings(self):
+        """Return the current output settings from the project configuration."""
+        if self.current_project_config:
+            return self.current_project_config.output_settings
+        logging.warning("No active project configuration loaded.")
+        return None
 
-    def get_file_entry(self, file_id):
+    def update_output_settings(self, new_output_settings):
+        """Update and save the output settings."""
+        if self.current_project_config:
+            self.current_project_config.output_settings = new_output_settings
+            self.save_project()
+        else:
+            logging.warning("No active project configuration loaded.")
+
+    def get_file_entry(self, id):
         """Retrieve a file entry by file ID from the current project configuration."""
         if self.current_project_config:
-            return self.find_file_by_id(file_id)
+            return self.find_file_by_id(id)
         logging.warning(f"No active project configuration loaded.")
         return None
 
-    def update_labels(self, file_id, labels):
+    def update_labels(self, id, labels):
         """Update the labels for a specific file entry by file ID and save the changes."""
         if self.current_project_config:
-            file_entry = self.find_file_by_id(file_id)
+            file_entry = self.find_file_by_id(id)
             if file_entry:
                 file_entry.set_labels(labels)
                 self.save_project()
             else:
-                logging.error(f"File with ID {file_id} not found.")
+                logging.error(f"File with ID {id} not found.")
         else:
             logging.warning(f"No active project configuration loaded.")
 
     def get_file_path(self, file_entry):
         """Get the full file path for the given file entry."""
         if self.current_project_config:
-            return os.path.join(self.current_project_config.data_root_directory, file_entry.path)
+            # Get the active data root directory
+            active_root = self.current_project_config.data_root_directory.get("active")
+
+            if not active_root:
+                logging.error("Active data root directory not set. Please resolve data root directory.")
+                return None
+
+            return os.path.join(active_root, file_entry.path)
+
         logging.warning(f"No active project configuration loaded.")
         return None
 
@@ -169,8 +202,8 @@ class ProjectService:
             return
 
         # Generate a unique ID for the file entry
-        unique_id = self._generate_unique_file_id()
-        file_entry.file_id = unique_id
+        unique_id = self._generate_unique_id()
+        file_entry.id = unique_id
 
         # Add the file to the specified parent directory path
         parent_dir, is_root = self.find_directory_by_path(parent_full_path)
@@ -272,7 +305,6 @@ class ProjectService:
             label_display=default_label_display
         )
 
-
         # Save the project configuration as a JSON file
         self._save_project_config(location, project_config)
 
@@ -289,38 +321,38 @@ class ProjectService:
             logging.error(f"Failed to save project config to {location}: {e}")
             raise
 
-    def _generate_unique_file_id(self):
+    def _generate_unique_id(self):
         """Generate a unique file ID that does not already exist in the project configuration."""
         while True:
             # Generate a simple unique ID
             unique_id = str(uuid.uuid4())[:8]  # Use the first 8 characters of UUID for simplicity
 
             # Check if the generated ID already exists
-            if not self._is_file_id_exists(unique_id):
+            if not self._does_id_exist(unique_id):
                 return unique_id
 
-    def _is_file_id_exists(self, file_id):
+    def _does_id_exist(self, id):
         """Check if the given file ID already exists in the current project configuration."""
         if not self.current_project_config:
             return False
 
-        return self.find_file_by_id(file_id) is not None
+        return self.find_file_by_id(id) is not None
 
-    def find_file_by_id(self, file_id):
+    def find_file_by_id(self, id):
         """Retrieve a file entry by file ID from the current project configuration."""
         if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
             return None
 
-        return self._search_file_by_id(self.current_project_config.entries, file_id)
+        return self._search_file_by_id(self.current_project_config.entries, id)
 
-    def _search_file_by_id(self, entries, file_id):
+    def _search_file_by_id(self, entries, id):
         """Recursively searches the directory structure to find a file by its id."""
         for entry in entries:
-            if isinstance(entry, FileEntry) and entry.file_id == file_id:
+            if isinstance(entry, FileEntry) and entry.id == id:
                 return entry
             elif isinstance(entry, DirectoryEntry):
-                found = self._search_file_by_id(entry.entries, file_id)
+                found = self._search_file_by_id(entry.entries, id)
                 if found:
                     return found
         return None
@@ -385,53 +417,76 @@ class ProjectService:
         """
         return math.ceil(1000 / self.input_freq)
 
-    def delete_file_by_id(self, file_id):
+    def delete_file_by_id(self, id):
         """Delete a file entry from the project configuration by file ID."""
         if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
             return
 
         # Find the file entry by its ID
-        file_entry = self.find_file_by_id(file_id)
+        file_entry = self.find_file_by_id(id)
 
         if file_entry:
             # Find the parent directory of the file entry
-            parent_entry = self.find_parent_directory_of_file(file_id, self.current_project_config.entries)
+            parent_entry = self.find_parent_directory_of_file(id, self.current_project_config.entries)
 
             if parent_entry and isinstance(parent_entry, DirectoryEntry):
                 # Remove the file entry from the parent directory
                 parent_entry.entries.remove(file_entry)
                 self.save_project()  # Persist the changes
-                logging.info(f"Deleted file with ID '{file_id}' from project configuration.")
+                logging.info(f"Deleted file with ID '{id}' from project configuration.")
             else:
-                logging.warning(f"Parent directory for file with ID '{file_id}' not found.")
+                logging.warning(f"Parent directory for file with ID '{id}' not found.")
         else:
-            logging.warning(f"File with ID '{file_id}' not found.")
+            logging.warning(f"File with ID '{id}' not found.")
 
-    def find_parent_directory_of_file(self, file_id, entries):
+    def find_parent_directory_of_file(self, id, entries):
         """Recursively find the parent directory of a file entry by file ID."""
         for entry in entries:
-            if isinstance(entry, FileEntry) and entry.file_id == file_id:
+            if isinstance(entry, FileEntry) and entry.id == id:
                 return None  # If this is the file entry, return None (it has no parent)
             elif isinstance(entry, DirectoryEntry):
-                if any(isinstance(sub_entry, FileEntry) and sub_entry.file_id == file_id for sub_entry in
+                if any(isinstance(sub_entry, FileEntry) and sub_entry.id == id for sub_entry in
                        entry.entries):
                     return entry  # Return the parent directory if the file is found here
                 # Recursively search in sub-directories
-                parent = self.find_parent_directory_of_file(file_id, entry.entries)
+                parent = self.find_parent_directory_of_file(id, entry.entries)
                 if parent:
                     return parent
         return None
 
-    def update_file_comment(self, file_id, comment):
+    def update_file_comment(self, id, comment):
         """Update the comment for a specific file entry by file ID."""
         if self.current_project_config:
-            file_entry = self.find_file_by_id(file_id)
+            file_entry = self.find_file_by_id(id)
             if file_entry:
                 file_entry.comment = comment
                 self.save_project()
             else:
-                logging.error(f"File with ID {file_id} not found.")
+                logging.error(f"File with ID {id} not found.")
         else:
             logging.warning(f"No active project configuration loaded.")
 
+    @staticmethod
+    def get_os_username():
+        """Return the current OS username (used to find data_root per user)."""
+        try:
+            return os.getlogin()
+        except Exception:
+            return getpass.getuser()  # Fallback method
+
+    def get_user_data_path(self):
+        """Return the correct data path based on the current user."""
+        username = self.get_os_username()
+        data_paths = self.current_project_config.data_root_directory
+
+        if username in data_paths:
+            return data_paths[username]
+        elif 'default' in data_paths:
+            return data_paths['default']
+        else:
+            raise FileNotFoundError(f"No path found for user {username} and no default path available.")
+
+    def get_input_settings(self) -> InputSettings:
+        """Return the input settings from the project configuration."""
+        return self.project_config.input_settings if self.project_config else None

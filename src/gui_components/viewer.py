@@ -2,14 +2,16 @@ import copy
 from datetime import datetime, date, time as dt_time, timedelta
 import logging
 import pandas as pd
-import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from matplotlib.patches import Rectangle
-import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from accel_data_parser import AccelDataParser
-from models.label import Label
+from matplotlib.patches import Rectangle
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import tkinter as tk
 from gui_components.behavior_selection_dialog import BehaviorSelectionDialog
+from input_types.vectronic_motion import VectronicMotionInput
+from models.label import Label
+from models.input_settings import InputType
 
 
 class Viewer(tk.Frame):
@@ -18,11 +20,8 @@ class Viewer(tk.Frame):
         self.parent = parent
         self.project_service = project_service
         self.info_pane = None
+        self.axes_config = None
         self.active_axes = []
-        if self.project_service and self.project_service.get_project_config():
-            self.active_axes = [display.input_name for display in
-                                self.project_service.get_project_config().data_display]  # All axes active by default
-
         self.data_path = None
         self.data = None
         self.labels = []
@@ -148,30 +147,35 @@ class Viewer(tk.Frame):
             # self.file_entry = self.project_config.find_file_by_name(relative_path)
 
     def load_file_entry(self, file_entry):
+        """Load a file entry and configure the viewer accordingly."""
+        # Store the file entry and retrieve the file path
+        self.file_entry = copy.deepcopy(file_entry)
         file_path = self.project_service.get_file_path(file_entry)
-
         self.parent.set_status(f"Attempting to load {file_path}")
 
-        # Clear previous data
-        self.data_path = file_path
-        self.ax.clear()
-        self.labels.clear()  # Clear existing labels
-        self.file_entry = copy.deepcopy(file_entry)
+        # Initialize the input interface based on the project config's input settings
+        input_interface = self.get_input_interface()
 
-        # Load the new CSV file and parse data
-        data_parser = AccelDataParser(file_path)
-        self.data = data_parser.read_data()
+        try:
+            # Load data using the input interface
+            self.data = input_interface.load_data(file_path)
+            input_interface.validate_format(self.data)  # Optional validation step
 
-        if self.data is not None:
-            # Reload the labels even if the file is opened again
-            if self.file_entry:
-                self.labels = self.file_entry.labels  # Repopulate the labels
-                self.update_label_list()  # Update the label listbox
+            # Set up axes configuration
+            self.set_axes_config(input_interface.get_axes_config())
 
+            # Initialize labels and other file-related attributes
+            self.data_path = file_path
+            self.labels = file_entry.labels
             self.setup_mouse_events()
 
-        # Update the status bar with the name of the loaded file
-        self.parent.set_status(f"Loaded: {file_path}")
+            # Finalize loading status and update label display
+            self.parent.set_status(f"Loaded: {file_path}")
+            self.update_label_list()
+
+        except Exception as e:
+            logging.error(f"Error loading data from {file_path}: {e}")
+            self.parent.set_status(f"Failed to load file: {file_path}")
 
     def get_data_path(self):
         if self.data_path:
@@ -239,13 +243,13 @@ class Viewer(tk.Frame):
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
 
-        # Redraw plot after plotting the labels
-        for display in self.project_config.data_display:
-            if display.input_name in self.active_axes:
-                input_name = display.input_name
-                color = display.color
-                alpha = display.alpha
-                self.ax.plot(self.data['Timestamp'], self.data[input_name], color=color, alpha=alpha)
+        for axis_display in self.axes_config.axis_displays:
+            # Ensure column exists in data
+            if axis_display.input_name in self.data.columns and axis_display.input_name in self.active_axes:
+                color = axis_display.color
+                alpha = axis_display.alpha
+                self.ax.plot(self.data['Timestamp'], self.data[axis_display.input_name], color=color, alpha=alpha,
+                             label=axis_display.display_name)
 
         if self.current_xlim:
             self.ax.set_xlim(self.current_xlim)
@@ -256,6 +260,8 @@ class Viewer(tk.Frame):
         self.ax.set_ylabel("Total Body Acceleration")
         self.ax.set_title(self.project_service.get_plot_title(self.file_entry))
         self.ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        self.ax.yaxis.set_major_formatter(mticker.FormatStrFormatter('%.2f'))  # Forces numeric formatting on y-axis
+
         plt.xticks(rotation=45)
         self.canvas.draw_idle()
 
@@ -291,7 +297,7 @@ class Viewer(tk.Frame):
         :return:
         """
         if self.file_entry:
-            self.project_service.update_labels(self.file_entry.file_id, self.labels)
+            self.project_service.update_labels(self.file_entry.id, self.labels)
         else:
             logging.warning("Unable to save labels to project config as no file entry found")
 
@@ -302,7 +308,7 @@ class Viewer(tk.Frame):
             if not cursor_time:
                 time_str = '-'
             else:
-                # TODO: is there a cleaner way to do this (format milliseconds)
+                # Format time with milliseconds
                 ms = cursor_time.strftime('%f')[:3]
                 time_str = cursor_time.strftime('%H:%M:%S') + f".{ms}"
             data_values = {}
@@ -310,36 +316,35 @@ class Viewer(tk.Frame):
             # Convert Timestamp column to timezone-naive if it has timezone info
             timestamp_data = self.data['Timestamp'].dt.tz_localize(None)
 
-            for display in self.project_config.data_display:
-                if display.input_name in self.data.columns:
+            # Use axes_config to iterate over axis displays
+            for axis_display in self.axes_config.axis_displays:
+                if axis_display.input_name in self.data.columns:
                     index = (timestamp_data - pd.Timestamp(cursor_time)).abs().idxmin()
-                    data_values[display.input_name] = f"{self.data.iloc[index][display.input_name]:.2f}"
+                    data_values[axis_display.input_name] = f"{self.data.iloc[index][axis_display.input_name]:.2f}"
 
             # Update the InfoPane with current cursor position
             if self.info_pane:
                 self.info_pane.update_cursor_report(time_str, data_values)
 
+        # Handle label dragging and edge detection, unchanged from your original method
         if event.inaxes and self.dragging and self.selected_label:
             rect = self.rectangles[self.selected_label]
-            # Only adjust the rectangle during the drag, not the label data.
             if self.drag_edge == 'start':
                 if event.xdata < rect.get_x() + rect.get_width():  # Prevent overlap
-                    # Calculate the new width by subtracting the new x position from the old x position plus the old width
                     new_width = (rect.get_x() + rect.get_width()) - event.xdata
                     rect.set_x(event.xdata)
                     rect.set_width(new_width)
-                    self.ax.figure.canvas.draw_idle()  # Efficient redraw of the plot
+                    self.ax.figure.canvas.draw_idle()
             elif self.drag_edge == 'end':
-                if event.xdata > rect.get_x():  # Prevent overlap
+                if event.xdata > rect.get_x():
                     rect.set_width(event.xdata - rect.get_x())
-                    self.ax.figure.canvas.draw_idle()  # Efficient redraw of the plot
-
+                    self.ax.figure.canvas.draw_idle()
             return
 
-        # Adjust the detection threshold based on the current axis limits (considering zoom level)
+        # Set threshold and handle rectangle edge detection, unchanged from your original method
         x_min, x_max = self.ax.get_xlim()
         axis_width = x_max - x_min
-        threshold = axis_width * 0.005  # Use 0.5% of the axis width as the detection threshold
+        threshold = axis_width * 0.005  # 0.5% of axis width for detection
 
         near_edge = False
         for label, rect in self.rectangles.items():
@@ -695,3 +700,26 @@ class Viewer(tk.Frame):
         self.current_ylim = self.ax.get_ylim()
 
         self.parent.set_status("Zoomed out to show all data.")
+
+    def set_axes_config(self, axes_config):
+        """Configure the viewer with a given AxesConfig instance."""
+        self.axes_config = axes_config
+        # Filter out any axis where `display_name` is "Timestamp" (or similar) to avoid plotting it
+        self.active_axes = [axis_display.input_name for axis_display in axes_config.axis_displays if
+                            axis_display.display_name != "Timestamp"]
+        self.update_plot()  # Trigger plot update based on new config
+
+    def get_input_interface(self):
+        """
+        Initialize and return the appropriate input interface based on the active project's input settings.
+        """
+        # Retrieve input settings from the project config
+        input_settings = self.project_service.get_project_config().input_settings
+        input_type = input_settings.input_type
+        frequency = input_settings.input_frequency
+
+        # Select the concrete input interface based on `input_type`
+        if input_type == InputType.VECTRONIC_MOTION:
+            return VectronicMotionInput(frequency=frequency)
+        else:
+            raise ValueError(f"Unsupported input type: {input_type}")
