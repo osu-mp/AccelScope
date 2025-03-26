@@ -33,7 +33,8 @@ class OutputType(Enum):
 
 class OutputSettings:
 	def __init__(self, output_type=OutputType.BEBE, downsample_method=DownsampleMethod.AVERAGE,
-	             output_period=OutputPeriod.ENTIRE_INPUT, output_frequency=16, buffer_minutes=5, round_to_minutes=1):
+	             output_period=OutputPeriod.ENTIRE_INPUT, output_frequency=16, buffer_minutes=5, 
+				 round_to_minutes=1, output_directory=None):
 		"""
 		Initializes the output settings for generating output files.
 
@@ -50,6 +51,7 @@ class OutputSettings:
 		self.output_frequency = output_frequency
 		self.buffer_minutes = buffer_minutes
 		self.round_to_minutes = round_to_minutes
+		self.output_directory = output_directory
 
 	def to_dict(self):
 		"""

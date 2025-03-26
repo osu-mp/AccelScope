@@ -349,8 +349,10 @@ class MainApplication(tk.Tk):
         def generate():
             try:
                 # Instantiate and configure output class based on output type
-                output_class = get_output_class(output_settings.output_type)
-                output_instance = output_class(output_settings, output_directory)
+                output_class = self.__class__.get_output_class(output_settings.output_type)
+                output_instance = output_class()#output_settings, output_directory)
+                output_instance.validate_settings(output_settings)                
+                # output_instance.generate_output(self.project_service.get_project_config(), output_directory, output_settings)
 
                 for step in output_instance.generate():
                     if progress_dialog.cancelled:

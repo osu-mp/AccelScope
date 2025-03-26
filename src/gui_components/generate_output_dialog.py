@@ -51,6 +51,9 @@ class GenerateOutputDialog(tk.Toplevel):
         # Output Directory
         ttk.Label(self, text="Output Directory:").grid(row=6, column=0, sticky=tk.W, padx=5, pady=5)
         self.output_directory_entry = ttk.Entry(self)
+        self.output_directory_entry.insert(0, r"D:\OSU\AccelScopeDemo\output")  # Default value
+        self.output_directory = self.output_directory_entry.get()
+        # TODO: Retrieve the default output directory from the application configuration
         self.output_directory_entry.grid(row=6, column=1, sticky=tk.EW, padx=5, pady=5)
         ttk.Button(self, text="Browse", command=self.select_output_directory).grid(row=6, column=2, padx=5, pady=5)
 
@@ -79,13 +82,14 @@ class GenerateOutputDialog(tk.Toplevel):
                 output_period=OutputPeriod(self.output_period_var.get()),
                 output_frequency=self.output_frequency_var.get(),
                 buffer_minutes=self.buffer_minutes_var.get(),
-                round_to_minutes=self.round_to_minutes_var.get()
+                round_to_minutes=self.round_to_minutes_var.get(),
+                output_directory=self.output_directory_entry.get()
             )
 
             logging.info(f"Generating output with settings: {self.output_settings.to_dict()}")
             # Pass the settings to the output generation function
             # Placeholder for actual output generation
-            messagebox.showinfo("Success", "Output generated successfully!")
+            # messagebox.showinfo("Success", "Output generated successfully!")
             self.destroy()
         except Exception as e:
             logging.error(f"Failed to generate output: {e}")
