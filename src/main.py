@@ -16,7 +16,6 @@ from gui_components.new_project_dialog import NewProjectDialog
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 from models.label import Label
-from models.output_settings import OutputType
 from output_types.bebe_output import BEBEOutput
 from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
@@ -272,20 +271,23 @@ class MainApplication(tk.Tk):
         logging.info(msg)
 
     def generate_project_output(self):
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
         # Open the GenerateOutputDialog
-        output_dialog = GenerateOutputDialog(self)
+        input_frequency = None
+        if self.project_service.current_project_config.input_settings:
+            input_frequency = self.project_service.current_project_config.input_settings.input_frequency
+        output_dialog = GenerateOutputDialog(self, input_frequency=input_frequency)
         output_dialog.transient(self)
         output_dialog.grab_set()
         self.wait_window(output_dialog)
 
         # Retrieve the output settings from the dialog after it closes
-        output_settings = output_dialog.output_settings
-        output_directory = output_dialog.output_directory
-
-        if output_settings and output_directory:
-            # Initialize the output generation process
+        if output_dialog.result_ready and output_dialog.output_settings and output_dialog.output_directory:
             logging.info("Starting output generation...")
-            self.start_output_generation(output_settings, output_directory)
+            self.start_output_generation(output_dialog.output_settings, output_dialog.output_directory)
         else:
             logging.info("Output generation canceled or incomplete settings.")
 
@@ -372,44 +374,44 @@ class MainApplication(tk.Tk):
         progress_dialog.grab_set()
 
         # Run the output generation in a separate thread to keep GUI responsive
-        self.after(100, lambda: self.generate_output_files(output_settings, output_directory, progress_dialog))
+        threading.Thread(
+            target=self._run_output_generation,
+            args=(output_settings, output_directory, progress_dialog),
+            daemon=True
+        ).start()
 
-    def generate_output_files(self, output_settings, output_directory, progress_dialog):
-        def generate():
-            try:
-                # Instantiate and configure output class based on output type
-                output_class = get_output_class(output_settings.output_type)
-                output_instance = output_class(output_settings, output_directory)
+    def _run_output_generation(self, output_settings, output_directory, progress_dialog):
+        """Run BEBE output generation in a background thread."""
+        try:
+            bebe = BEBEOutput()
+            output_files = bebe.generate_output(
+                self.project_service.current_project_config,
+                output_directory,
+                output_settings
+            )
 
-                for step in output_instance.generate():
-                    if progress_dialog.cancelled:
-                        logging.info("Output generation canceled by user.")
-                        break
-                    # Update progress if needed
+            if not progress_dialog.cancelled:
+                logging.info(f"Output generation completed. {len(output_files)} files written.")
+                self.after(0, lambda: self._on_generation_complete(progress_dialog, len(output_files)))
+        except Exception as e:
+            logging.error(f"Error during output generation: {e}")
+            self.after(0, lambda: self._on_generation_error(progress_dialog, str(e)))
 
-                if not progress_dialog.cancelled:
-                    logging.info("Output generation completed successfully.")
-                progress_dialog.destroy()
-            except Exception as e:
-                logging.error(f"Error during output generation: {e}")
-                progress_dialog.destroy()
+    def _on_generation_complete(self, progress_dialog, file_count):
+        """Called on the main thread when generation completes."""
+        try:
+            progress_dialog.destroy()
+        except tk.TclError:
+            pass
+        messagebox.showinfo("Success", f"Output generation completed. {file_count} files written.")
 
-        threading.Thread(target=generate, daemon=True).start()
-
-    @staticmethod
-    def get_output_class(output_type: OutputType):
-        """
-        Returns the appropriate output generator class based on the provided output type.
-
-        :param output_type: The output type (enum) from OutputSettings.
-        :return: A class implementing OutputGeneratorInterface.
-        :raises ValueError: If no class is found for the given output type.
-        """
-        if output_type == OutputType.BEBE:
-            return BEBEOutput
-        # Future output types can be added here as elif blocks.
-
-        raise ValueError(f"No output class found for output type: {output_type}")
+    def _on_generation_error(self, progress_dialog, error_msg):
+        """Called on the main thread when generation fails."""
+        try:
+            progress_dialog.destroy()
+        except tk.TclError:
+            pass
+        messagebox.showerror("Error", f"Output generation failed: {error_msg}")
 
 
 if __name__ == '__main__':
