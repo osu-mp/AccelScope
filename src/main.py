@@ -2,7 +2,7 @@ import logging
 import os.path
 import threading
 import tkinter as tk
-from tkinter import Menu, filedialog
+from tkinter import Menu, filedialog, messagebox
 
 from gui_components.about_dialog import AboutDialog
 from gui_components.info_pane import InfoPane
@@ -37,6 +37,7 @@ class MainApplication(tk.Tk):
         last_opened_project = self.user_app_config_service.config.last_opened_project
         if last_opened_project and os.path.exists(last_opened_project):
             self.project_service.load_project(last_opened_project)
+            self._prompt_data_root_if_invalid()
 
         self.setup_gui()
 
@@ -140,6 +141,7 @@ class MainApplication(tk.Tk):
         file_menu.add_command(label='Exit', command=self.quit)
 
         proj_menu = Menu(self.menu_bar, tearoff=0)
+        proj_menu.add_command(label='Change Data Root...', command=self.change_data_root)
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
@@ -192,6 +194,7 @@ class MainApplication(tk.Tk):
                 logging.error(f"Unable to open {project_path}, file does not exist")
                 return
             self.project_service.load_project(project_path)
+            self._prompt_data_root_if_invalid()
             self.user_app_config_service.set_last_opened_project(project_path)
 
             self.project_browser.load_project()
@@ -209,6 +212,32 @@ class MainApplication(tk.Tk):
         self.info_pane.set_file_entry(file_entry)
 
         self.user_app_config_service.set_last_opened_file(file_entry.id)
+
+    def _prompt_data_root_if_invalid(self):
+        """If the active data root is invalid, prompt the user to select a valid directory."""
+        if self.project_service.is_data_root_valid():
+            return
+        logging.warning("Data root directory is invalid or missing for this user.")
+        new_path = filedialog.askdirectory(title="Select Data Root Directory")
+        if new_path:
+            self.project_service.update_user_data_root(new_path)
+            logging.info(f"Data root updated to: {new_path}")
+        else:
+            logging.warning("User cancelled data root selection. Files may not resolve.")
+            if hasattr(self, 'status_bar'):
+                self.status_bar.set("Warning: Data root not set. File paths may not resolve.")
+
+    def change_data_root(self):
+        """Allow user to change the data root directory via a folder picker."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+        new_path = filedialog.askdirectory(title="Select Data Root Directory")
+        if new_path:
+            self.project_service.update_user_data_root(new_path)
+            self.status_bar.set(f"Data root updated to: {new_path}")
+            # Refresh the project browser to reflect any changes
+            self.project_browser.load_project()
 
     def edit_preferences(self):
         pass  # Implement preferences editing logic

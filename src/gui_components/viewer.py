@@ -714,7 +714,10 @@ class Viewer(tk.Frame):
         Initialize and return the appropriate input interface based on the active project's input settings.
         """
         # Retrieve input settings from the project config
-        input_settings = self.project_service.get_project_config().input_settings
+        project_config = self.project_service.get_project_config()
+        if project_config is None:
+            return None
+        input_settings = project_config.input_settings
         input_type = input_settings.input_type
         frequency = input_settings.input_frequency
 

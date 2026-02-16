@@ -76,6 +76,8 @@ class InfoPane(tk.Frame):
         self.labels['Time'].grid(row=0, column=1, sticky="e")
 
         # Add labels for each axis based on the AxesConfig from input interface
+        if self.input_interface is None:
+            return
         axes_config = self.input_interface.get_axes_config()
         for idx, axis_display in enumerate(axes_config.axis_displays, start=1):
             data_label = tk.Label(self.cursor_report_frame, text=f"{axis_display.display_name}:", anchor="w", width=4)
@@ -110,6 +112,8 @@ class InfoPane(tk.Frame):
         self.checkbox_container = tk.Frame(self)
         self.checkbox_container.pack(fill=tk.NONE, pady=5, anchor=tk.N)
 
+        if self.input_interface is None:
+            return
         axes_config = self.input_interface.get_axes_config()
         for axis_display in axes_config.axis_displays:
             var = tk.BooleanVar(value=True)

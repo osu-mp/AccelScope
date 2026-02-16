@@ -63,6 +63,23 @@ class ProjectService:
         else:
             logging.error(f"No valid data root directory found for user '{username}' and no default. Please update the project config.")
 
+    def is_data_root_valid(self):
+        """Return True if the active data root exists and is a directory."""
+        if not self.current_project_config:
+            return False
+        active = self.current_project_config.data_root_directory.get("active")
+        return active is not None and os.path.isdir(active)
+
+    def update_user_data_root(self, new_path):
+        """Update the data root for the current OS user, re-resolve, and save."""
+        if not self.current_project_config:
+            logging.error("No project config loaded, cannot update data root.")
+            return
+        username = getpass.getuser()
+        self.current_project_config.add_user_path(username, new_path)
+        self.resolve_data_root_directory()
+        self.save_project()
+
     def save_project(self):
         """Save the current project configuration to the specified file path."""
         if not self.current_project_path:
