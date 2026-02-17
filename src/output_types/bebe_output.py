@@ -181,8 +181,10 @@ class BEBEOutput(OutputGeneratorInterface):
 
 	def _filter_labeled_with_buffer(self, df, labels, buffer_minutes, round_to_minutes):
 		"""Filter DataFrame to only include rows within buffered/rounded label periods."""
-		if not labels or "Timestamp" not in df.columns:
+		if "Timestamp" not in df.columns:
 			return df
+		if not labels:
+			return df.iloc[0:0]  # Return empty DataFrame when no labels exist
 
 		# Build time ranges from labels
 		ranges = []

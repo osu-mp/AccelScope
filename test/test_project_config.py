@@ -42,7 +42,7 @@ class TestProjectConfig(unittest.TestCase):
 	def test_project_config_serialization(self):
 		output_settings = OutputSettings(
 			output_type=OutputType.BEBE,
-			downsample_method=DownsampleMethod.AVERAGE,
+			downsample_methods=[DownsampleMethod.AVERAGE],
 			output_period=OutputPeriod.ENTIRE_INPUT,
 			output_frequency=16,
 			buffer_minutes=5,
@@ -60,7 +60,7 @@ class TestProjectConfig(unittest.TestCase):
 		project_dict = project.to_dict()
 		expected_output_settings_dict = {
 			"output_type": "bebe",
-			"downsample_method": "average",
+			"downsample_methods": ["average"],
 			"output_period": "entire_input",
 			"output_frequency": 16,
 			"buffer_minutes": 5,
@@ -73,7 +73,7 @@ class TestProjectConfig(unittest.TestCase):
 		project_from_dict = ProjectConfig.from_dict(project_dict)
 
 		self.assertEqual(project_from_dict.output_settings.output_type, OutputType.BEBE)
-		self.assertEqual(project_from_dict.output_settings.downsample_method, DownsampleMethod.AVERAGE)
+		self.assertEqual(project_from_dict.output_settings.downsample_methods, [DownsampleMethod.AVERAGE])
 		self.assertEqual(project_from_dict.output_settings.output_period, OutputPeriod.ENTIRE_INPUT)
 		self.assertEqual(project_from_dict.output_settings.output_frequency, 16)
 		self.assertEqual(project_from_dict.output_settings.buffer_minutes, 5)

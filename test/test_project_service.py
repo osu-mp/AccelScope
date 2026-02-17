@@ -22,7 +22,7 @@ class TestProjectService(unittest.TestCase):
         # Initialize OutputSettings with defaults
         self.output_settings = OutputSettings(
             output_type=OutputType.BEBE,
-            downsample_method=DownsampleMethod.AVERAGE,
+            downsample_methods=[DownsampleMethod.AVERAGE],
             output_period=OutputPeriod.ENTIRE_INPUT,
             output_frequency=4
         )
