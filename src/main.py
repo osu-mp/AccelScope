@@ -79,6 +79,9 @@ class MainApplication(tk.Tk):
         if self.user_app_config.info_width:
             self.paned_window.paneconfig(self.info_pane, width=self.user_app_config.info_width)
 
+    # Maximum width for the info pane (right side) in pixels
+    INFO_PANE_MAX_WIDTH = 300
+
     def on_resize(self, event):
         """Capture window resize events and update UserAppConfig."""
         # Update user config via service, keeping main_gui read-only for config
@@ -88,11 +91,24 @@ class MainApplication(tk.Tk):
         # Get the current sash positions to calculate the widths of different panes
         sash_position_0 = self.paned_window.sash_coord(0)[0]
         sash_position_1 = self.paned_window.sash_coord(1)[0]
+        total_width = self.paned_window.winfo_width()
+        info_width = total_width - sash_position_1
+
+        # Clamp the info pane to its max width — push extra space to the viewer
+        if info_width > self.INFO_PANE_MAX_WIDTH and total_width > 0:
+            new_sash_1 = total_width - self.INFO_PANE_MAX_WIDTH
+            if new_sash_1 > sash_position_0 + 200:  # keep viewer at least 200px
+                try:
+                    self.paned_window.sash_place(1, new_sash_1, 0)
+                    sash_position_1 = new_sash_1
+                    info_width = self.INFO_PANE_MAX_WIDTH
+                except tk.TclError:
+                    pass
 
         self.user_app_config_service.update_pane_widths(
             project_browser_width=sash_position_0,
             viewer_width=sash_position_1 - sash_position_0,
-            info_width=self.paned_window.winfo_width() - sash_position_1
+            info_width=info_width
         )
 
         self.user_app_config_service.save_to_file()
