@@ -71,7 +71,7 @@ class AccelDataParser:
 			elif method == 'average':
 				# Averaging groups of samples
 				chunk_size = len(self.data) // num_samples
-				self.data = self.data.groupby(np.arange(len(self.data)) // chunk_size).mean().head(num_samples)
+				self.data = self.data.groupby(np.arange(len(self.data)) // chunk_size).mean(numeric_only=True).head(num_samples)
 
 		return self.data
 

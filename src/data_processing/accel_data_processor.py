@@ -4,7 +4,19 @@ import datetime
 
 class AccelDataProcessor:
     @staticmethod
-    def find_nearest_behaviors(data: pd.DataFrame, labels: list, input_time: datetime):
+    def find_nearest_behaviors(data: pd.DataFrame, labels: list, input_time):
+        """
+        Find the nearest label boundaries around input_time.
+
+        Labels use datetime.time, so input_time is converted to time for comparison.
+        Fallback boundaries (start/end of data) are returned as datetime.time as well.
+        """
+        # Normalize input_time to datetime.time for comparison with label times
+        if isinstance(input_time, datetime.datetime):
+            input_time = input_time.time()
+        elif isinstance(input_time, pd.Timestamp):
+            input_time = input_time.time()
+
         # Sort the labels by their start time to ensure correct ordering
         labels = sorted(labels, key=lambda x: x.start_time)
 
@@ -28,10 +40,12 @@ class AccelDataProcessor:
 
         # If there's no previous label, set it to the start of the data
         if prev_label is None:
-            prev_label = data['Timestamp'].min()
+            ts_min = data['Timestamp'].min()
+            prev_label = ts_min.time() if isinstance(ts_min, (pd.Timestamp, datetime.datetime)) else ts_min
 
         # If there's no next label, set it to the end of the data
         if next_label is None:
-            next_label = data['Timestamp'].max()
+            ts_max = data['Timestamp'].max()
+            next_label = ts_max.time() if isinstance(ts_max, (pd.Timestamp, datetime.datetime)) else ts_max
 
         return prev_label, next_label

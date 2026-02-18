@@ -1,7 +1,14 @@
-from accel_data_parser import AccelDataParser  # Import your class
 import os
+import sys
+from pathlib import Path
+
 import pandas as pd
 import unittest
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from accel_data_parser import AccelDataParser
 
 # Construct the relative path to the data file
 data_path = os.path.join(os.path.dirname(__file__), 'data', 'F202_2018-06-18.csv')
