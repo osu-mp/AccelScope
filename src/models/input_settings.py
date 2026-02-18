@@ -48,7 +48,7 @@ class InputSettings:
         :return: An instance of InputSettings.
         """
         # Safely access the keys with default values if they are missing
-        input_type = data.get("input_type", "UnknownInputType")  # Or provide a fallback/default
+        input_type = data.get("input_type", InputType.VECTRONIC_MOTION.value)
         input_frequency = data.get("input_frequency", 0)  # Default frequency if missing
 
         # Convert to Enum or required data types if applicable

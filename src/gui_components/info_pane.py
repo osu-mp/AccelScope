@@ -2,10 +2,11 @@ import logging
 from datetime import datetime, timedelta
 import tkinter as tk
 from tkinter import ttk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
 
-class InfoPane(tk.Frame):
+from gui_components.gui_theme import PAD_SM, PAD_MD, PAD_LG, FONT_BODY, FONT_HEADING
+
+
+class InfoPane(ttk.Frame):
     def __init__(self, parent, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
@@ -20,12 +21,12 @@ class InfoPane(tk.Frame):
         # Store the project config for accessing the data_display information
         self.project_config = self.project_service.get_project_config()
 
-        self.label = tk.Label(self, text='Info Pane')
-        self.label.pack(fill=tk.X, pady=5)
+        self.label = ttk.Label(self, text='Info Pane', font=FONT_HEADING)
+        self.label.pack(fill=tk.X, pady=PAD_MD)
 
         # Initialize the cursor report frame here
-        self.cursor_report_frame = tk.Frame(self)
-        self.cursor_report_frame.pack(fill=tk.NONE, pady=10)
+        self.cursor_report_frame = ttk.Frame(self)
+        self.cursor_report_frame.pack(fill=tk.NONE, pady=PAD_LG)
 
         # Report cursor x/y/z/time
         self.create_cursor_report()
@@ -33,17 +34,17 @@ class InfoPane(tk.Frame):
 
         # User Verified Checkbox
         self.user_verified_var = tk.BooleanVar()
-        self.user_verified_checkbox = tk.Checkbutton(self, text="User Verified", variable=self.user_verified_var,
-                                                     command=self.on_user_verified_change)
-        self.user_verified_checkbox.pack(fill=tk.X, pady=5)
+        self.user_verified_checkbox = ttk.Checkbutton(self, text="User Verified", variable=self.user_verified_var,
+                                                      command=self.on_user_verified_change)
+        self.user_verified_checkbox.pack(fill=tk.X, pady=PAD_MD)
         self.add_separator()
 
         # Comments Section
-        self.comments_label = tk.Label(self, text="Comments")
-        self.comments_label.pack(fill=tk.X, pady=5)
+        self.comments_label = ttk.Label(self, text="Comments", font=FONT_BODY)
+        self.comments_label.pack(fill=tk.X, pady=PAD_MD)
 
         self.comments_text = tk.Text(self, height=4, width=40)
-        self.comments_text.pack(fill=tk.X, pady=5)
+        self.comments_text.pack(fill=tk.X, pady=PAD_MD)
         self.comments_text.bind("<KeyRelease>", self.on_comments_change)  # Detect changes to comments
         self.add_separator()
 
@@ -55,10 +56,11 @@ class InfoPane(tk.Frame):
         self.add_separator()
 
         # Create the "Labeled Actions" label only once
-        self.labeled_actions_label = tk.Label(self, text="Labeled Actions")
-        self.labeled_actions_label.pack(fill=tk.X, pady=5)
+        self.labeled_actions_label = ttk.Label(self, text="Labeled Actions", font=FONT_BODY)
+        self.labeled_actions_label.pack(fill=tk.X, pady=PAD_MD)
 
         # Create the initial legend for both data display and labeled actions
+        self.legend_canvas = None
         self.create_legend()
 
     def create_cursor_report(self):
@@ -70,9 +72,9 @@ class InfoPane(tk.Frame):
         self.labels = {}
 
         # Add "Time" label
-        time_label = tk.Label(self.cursor_report_frame, text="Time:", anchor="w", width=4)
+        time_label = ttk.Label(self.cursor_report_frame, text="Time:", anchor="w", width=4)
         time_label.grid(row=0, column=0, sticky="w")
-        self.labels['Time'] = tk.Label(self.cursor_report_frame, text="-", anchor="e")
+        self.labels['Time'] = ttk.Label(self.cursor_report_frame, text="-", anchor="e")
         self.labels['Time'].grid(row=0, column=1, sticky="e")
 
         # Add labels for each axis based on the AxesConfig from input interface
@@ -80,9 +82,9 @@ class InfoPane(tk.Frame):
             return
         axes_config = self.input_interface.get_axes_config()
         for idx, axis_display in enumerate(axes_config.axis_displays, start=1):
-            data_label = tk.Label(self.cursor_report_frame, text=f"{axis_display.display_name}:", anchor="w", width=4)
+            data_label = ttk.Label(self.cursor_report_frame, text=f"{axis_display.display_name}:", anchor="w", width=4)
             data_label.grid(row=idx, column=0, sticky="w")
-            self.labels[axis_display.input_name] = tk.Label(self.cursor_report_frame, text="-", anchor="e", width=6)
+            self.labels[axis_display.input_name] = ttk.Label(self.cursor_report_frame, text="-", anchor="e", width=6)
             self.labels[axis_display.input_name].grid(row=idx, column=1, sticky="e")
 
     def update_cursor_report(self, time, data_values):
@@ -102,15 +104,16 @@ class InfoPane(tk.Frame):
         """Reset dynamic components (checkboxes, legend) when a new project is loaded."""
         if hasattr(self, 'checkbox_container'):
             self.checkbox_container.destroy()
-        if hasattr(self, 'legend_canvas'):
-            self.legend_canvas.get_tk_widget().destroy()
+        if self.legend_canvas is not None:
+            self.legend_canvas.destroy()
+            self.legend_canvas = None
         self.data_display_vars.clear()
 
     def create_data_display_checkboxes(self):
         """Create checkboxes for each axis in AxesConfig."""
-        tk.Label(self, text="Axis Control").pack(fill=tk.X, pady=5)
-        self.checkbox_container = tk.Frame(self)
-        self.checkbox_container.pack(fill=tk.NONE, pady=5, anchor=tk.N)
+        ttk.Label(self, text="Axis Control", font=FONT_BODY).pack(fill=tk.X, pady=PAD_MD)
+        self.checkbox_container = ttk.Frame(self)
+        self.checkbox_container.pack(fill=tk.NONE, pady=PAD_MD, anchor=tk.N)
 
         if self.input_interface is None:
             return
@@ -120,11 +123,12 @@ class InfoPane(tk.Frame):
             self.axis_vars[axis_display.input_name] = var
 
             checkbox_frame = tk.Frame(self.checkbox_container, highlightbackground=axis_display.color,
-                                      highlightcolor=axis_display.color, highlightthickness=2, bd=0, padx=1, pady=1)
-            checkbox_frame.pack(anchor=tk.NW, pady=2, fill=tk.X)
-            checkbox = tk.Checkbutton(checkbox_frame, text=axis_display.display_name, variable=var,
-                                      command=self.update_viewer)
-            checkbox.pack(anchor=tk.W, padx=5)
+                                      highlightcolor=axis_display.color, highlightthickness=2, bd=0,
+                                      padx=PAD_SM, pady=PAD_SM)
+            checkbox_frame.pack(anchor=tk.NW, pady=PAD_SM, fill=tk.X)
+            checkbox = ttk.Checkbutton(checkbox_frame, text=axis_display.display_name, variable=var,
+                                       command=self.update_viewer)
+            checkbox.pack(anchor=tk.W, padx=PAD_MD)
 
     def update_viewer(self):
         """Update the viewer when axis checkboxes are changed."""
@@ -133,41 +137,44 @@ class InfoPane(tk.Frame):
         self.viewer.set_active_axes(active_axes)
 
     def create_legend(self):
-        """Create or update the legend for the labeled actions."""
-        # Create a matplotlib figure for the legend
-        fig, ax = plt.subplots(figsize=(2, 5))  # Adjust the size as needed
-        ax.axis('off')
+        """Create or update the legend for the labeled actions using a tk.Canvas."""
+        if self.legend_canvas is not None:
+            self.legend_canvas.destroy()
 
-        lines = []
-        labels = []
+        self.legend_canvas = tk.Canvas(self, highlightthickness=0)
+        self.legend_canvas.pack(fill=tk.BOTH, pady=PAD_MD, expand=True)
 
-        # Labels/Annotations Legend
-        if self.viewer.labels:
-            for label in sorted(self.viewer.labels, key=lambda x: x.start_time):
-                # Get label color and alpha from the project config
-                label_display = self.project_service.get_label_display(label.behavior)
-                color = label_display.color if label_display else 'gray'
-                alpha = label_display.alpha if label_display else 0.5
+        self._draw_legend_items()
 
-                # Calculate the duration of the behavior
-                duration_str = self.calculate_duration(label.start_time, label.end_time)
+    def _draw_legend_items(self):
+        """Draw colored rectangles and text labels on the legend canvas."""
+        if not self.viewer.labels:
+            return
 
-                # Create a dummy rectangle for the legend
-                rect = plt.Rectangle((0, 0), 1, 1, color=color, alpha=alpha)
-                lines.append(rect)
-                labels.append(f"{label.behavior} ({duration_str})")
+        rect_size = 14
+        x_pad = PAD_MD
+        y = PAD_MD
 
-        # Create the legend from the dummy elements
-        legend = ax.legend(lines, labels, loc='center', frameon=False)
+        for label in sorted(self.viewer.labels, key=lambda x: x.start_time):
+            label_display = self.project_service.get_label_display(label.behavior)
+            color = label_display.color if label_display else 'gray'
 
-        # Check if the canvas has been initialized before accessing it
-        if hasattr(self, 'legend_canvas'):
-            self.legend_canvas.get_tk_widget().destroy()  # Remove the old canvas
+            duration_str = self.calculate_duration(label.start_time, label.end_time)
+            text = f"{label.behavior} ({duration_str})"
 
-        # Create or update the Tkinter canvas to display the legend
-        self.legend_canvas = FigureCanvasTkAgg(fig, master=self)
-        self.legend_canvas.get_tk_widget().pack(fill=tk.BOTH, pady=5, expand=True)
-        self.legend_canvas.draw_idle()
+            self.legend_canvas.create_rectangle(
+                x_pad, y, x_pad + rect_size, y + rect_size,
+                fill=color, outline=color
+            )
+            self.legend_canvas.create_text(
+                x_pad + rect_size + PAD_MD, y + rect_size // 2,
+                text=text, anchor="w", font=FONT_BODY
+            )
+
+            y += rect_size + PAD_MD
+
+        # Update canvas scroll region to fit content
+        self.legend_canvas.configure(scrollregion=self.legend_canvas.bbox("all") or (0, 0, 0, 0))
 
     def update_label_durations(self):
         """Update the legend whenever labels change."""
@@ -175,13 +182,15 @@ class InfoPane(tk.Frame):
 
     def update_legend(self):
         """Refresh the legend in the InfoPane when labels are added/updated."""
-        if hasattr(self, 'legend_canvas'):
-            self.legend_canvas.get_tk_widget().destroy()
-        self.create_legend()
+        if self.legend_canvas is not None:
+            self.legend_canvas.delete("all")
+            self._draw_legend_items()
+        else:
+            self.create_legend()
 
     def add_separator(self):
         separator = ttk.Separator(self, orient='horizontal')
-        separator.pack(fill='x', pady=10)
+        separator.pack(fill='x', pady=PAD_LG)
 
     def set_project_service(self, project_service):
         """
@@ -199,9 +208,9 @@ class InfoPane(tk.Frame):
         if file_entry:
             self.user_verified_var.set(file_entry.user_verified)
             if file_entry.user_verified:
-                self.user_verified_checkbox.select()
+                self.user_verified_checkbox.state(['selected'])
             else:
-                self.user_verified_checkbox.deselect()
+                self.user_verified_checkbox.state(['!selected'])
 
             if file_entry.comment:
                 self.comments_text.delete("1.0", tk.END)

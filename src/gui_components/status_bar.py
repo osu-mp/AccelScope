@@ -1,10 +1,11 @@
 import tkinter as tk
+from tkinter import ttk
 
 
-class StatusBar(tk.Frame):
+class StatusBar(ttk.Frame):
     def __init__(self, master, **kw):
         super().__init__(master, **kw)
-        self.label = tk.Label(self, anchor="w", text="Ready", bg="green", fg="white")
+        self.label = ttk.Label(self, anchor="w", text="Ready", style="StatusBar.TLabel")
         self.label.pack(fill=tk.X, expand=True)
 
     def set(self, text):

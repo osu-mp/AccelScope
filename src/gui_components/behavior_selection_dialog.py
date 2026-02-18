@@ -14,7 +14,7 @@ class BehaviorSelectionDialog(simpledialog.Dialog):
         super().__init__(parent, title=title)
 
     def body(self, master):
-        tk.Label(master, text="Select Behavior:").grid(row=0)
+        ttk.Label(master, text="Select Behavior:").grid(row=0)
         self.var = tk.StringVar(master)
         self.var.set(self.behaviors[0] if self.behaviors else "")  # Set default value
         dropdown = ttk.Combobox(master, textvariable=self.var, values=self.behaviors, state='readonly')

@@ -1,6 +1,8 @@
 import logging
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
+
+from gui_components.gui_theme import PAD_MD
 from services.project_service import ProjectService
 
 
@@ -13,25 +15,25 @@ class NewProjectDialog(tk.Toplevel):
         self.created_project_path = None  # Will store the path if the project is created
 
         # Use grid layout manager instead of pack
-        ttk.Label(self, text="Project Name:").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Project Name:").grid(row=0, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.name_entry = ttk.Entry(self)
-        self.name_entry.grid(row=0, column=1, sticky=tk.EW, padx=5, pady=5)
+        self.name_entry.grid(row=0, column=1, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
 
         # Project Location
-        ttk.Label(self, text="Project File Location:").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Project File Location:").grid(row=1, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.location_entry = ttk.Entry(self)
-        self.location_entry.grid(row=1, column=1, sticky=tk.EW, padx=5, pady=5)
-        ttk.Button(self, text="Browse", command=self.select_file).grid(row=1, column=2, padx=5, pady=5)
+        self.location_entry.grid(row=1, column=1, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
+        ttk.Button(self, text="Browse", command=self.select_file).grid(row=1, column=2, padx=PAD_MD, pady=PAD_MD)
 
         # Data Root
-        ttk.Label(self, text="Input data root:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Input data root:").grid(row=2, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.data_root_entry = ttk.Entry(self)
-        self.data_root_entry.grid(row=2, column=1, sticky=tk.EW, padx=5, pady=5)
-        ttk.Button(self, text="Browse", command=self.select_directory).grid(row=2, column=2, padx=5, pady=5)
+        self.data_root_entry.grid(row=2, column=1, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
+        ttk.Button(self, text="Browse", command=self.select_directory).grid(row=2, column=2, padx=PAD_MD, pady=PAD_MD)
 
         # Confirmation Buttons
-        ttk.Button(self, text="Cancel", command=self.destroy).grid(row=4, column=0, padx=5, pady=5)
-        ttk.Button(self, text="Create Project", command=self.create_project).grid(row=4, column=1, padx=5, pady=5)
+        ttk.Button(self, text="Cancel", command=self.destroy).grid(row=4, column=0, padx=PAD_MD, pady=PAD_MD)
+        ttk.Button(self, text="Create Project", command=self.create_project).grid(row=4, column=1, padx=PAD_MD, pady=PAD_MD)
 
         # Make sure columns expand properly
         self.grid_columnconfigure(0, weight=1)  # Let column 0 (labels) expand

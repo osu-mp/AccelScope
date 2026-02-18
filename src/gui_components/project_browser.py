@@ -2,22 +2,23 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 from accel_data_parser import AccelDataParser
+from gui_components.gui_theme import PAD_SM, PAD_MD, FONT_BODY
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 
 
-class ProjectBrowser(tk.Frame):
+class ProjectBrowser(ttk.Frame):
     def __init__(self, parent, project_service, **kwargs):
         super().__init__(parent, **kwargs)
         self.parent = parent
         self.project_service = project_service
 
         # Add the title label with no padding and specific style
-        self.title_label = tk.Label(self, text="Project Browser", font=("Helvetica", 10))
-        self.title_label.pack(side=tk.TOP, anchor=tk.W, padx=0, pady=0)
+        self.title_label = ttk.Label(self, text="Project Browser", font=FONT_BODY)
+        self.title_label.pack(side=tk.TOP, anchor=tk.W, padx=PAD_SM, pady=PAD_SM)
 
         # Create a frame for Treeview to ensure tight layout
-        self.tree_frame = tk.Frame(self)  # Additional container to remove extra borders
+        self.tree_frame = ttk.Frame(self)
         self.tree_frame.pack(fill=tk.BOTH, expand=True)
 
         # Create the Treeview widget

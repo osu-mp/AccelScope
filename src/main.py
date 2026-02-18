@@ -4,6 +4,7 @@ import threading
 import tkinter as tk
 from tkinter import Menu, filedialog, messagebox
 
+from gui_components import gui_theme
 from gui_components.about_dialog import AboutDialog
 from gui_components.info_pane import InfoPane
 from gui_components.generate_output_dialog import GenerateOutputDialog
@@ -26,6 +27,7 @@ class MainApplication(tk.Tk):
         super().__init__()
         self.title('AccelScope')
         self.setup_logging()
+        gui_theme.apply_theme(self)
 
         # Create UserAppConfigService which manages the user configuration
         self.user_app_config_service = UserAppConfigService()
@@ -131,17 +133,17 @@ class MainApplication(tk.Tk):
 
         # Initialize the project browser as one pane (left side)
         self.project_browser = ProjectBrowser(self, project_service=self.project_service)
-        self.paned_window.add(self.project_browser, minsize=50)
+        self.paned_window.add(self.project_browser, minsize=gui_theme.PANE_MIN_BROWSER)
         self.project_browser.load_project()
 
         # Initialize the main viewer/content area as another pane (middle)
         self.viewer = Viewer(self, project_service=self.project_service, relief=tk.SUNKEN)
-        self.paned_window.add(self.viewer, minsize=200)
+        self.paned_window.add(self.viewer, minsize=gui_theme.PANE_MIN_VIEWER)
         self.viewer.set_project_config(project_config)
 
         # info pane for legend info/controls
         self.info_pane = InfoPane(self, project_service=self.project_service)
-        self.paned_window.add(self.info_pane, minsize=50)
+        self.paned_window.add(self.info_pane, minsize=gui_theme.PANE_MIN_INFO)
 
         # Set the reference of InfoPane in the Viewer
         self.viewer.set_info_pane(self.info_pane)
@@ -215,6 +217,7 @@ class MainApplication(tk.Tk):
             self.project_browser.load_project()
 
             self.viewer.clear_plot()
+            self.viewer.set_project_config(self.project_service.current_project_config)
             self.info_pane.set_project_service(self.project_service)
 
     def open_file(self, file_entry):

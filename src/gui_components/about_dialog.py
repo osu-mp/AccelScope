@@ -3,6 +3,8 @@ from tkinter import ttk
 import webbrowser
 from tkinter import messagebox
 
+from gui_components.gui_theme import PAD_MD, PAD_LG, FONT_TITLE
+
 class AboutDialog(tk.Toplevel):
     """
     Dialog with information about this program and support.
@@ -17,8 +19,8 @@ class AboutDialog(tk.Toplevel):
 
     def create_widgets(self):
         # Create a label for the title
-        title_label = ttk.Label(self, text="About AccelScope", font=("Helvetica", 14, "bold"))
-        title_label.grid(row=0, column=0, pady=(10, 5), padx=10)
+        title_label = ttk.Label(self, text="About AccelScope", font=FONT_TITLE)
+        title_label.grid(row=0, column=0, pady=(PAD_LG, PAD_MD), padx=PAD_LG)
 
         # Add a description label (multi-line)
         description_text = (
@@ -27,21 +29,21 @@ class AboutDialog(tk.Toplevel):
             "and export data for further processing."
         )
         description_label = ttk.Label(self, text=description_text, wraplength=400, justify="left")
-        description_label.grid(row=1, column=0, pady=(5, 10), padx=10)
+        description_label.grid(row=1, column=0, pady=(PAD_MD, PAD_LG), padx=PAD_LG)
 
         # Add a GitHub link
         github_label = ttk.Label(self, text="GitHub: AccelScope Repository", foreground="blue", cursor="hand2")
-        github_label.grid(row=2, column=0, pady=(0, 10), padx=10)
+        github_label.grid(row=2, column=0, pady=(0, PAD_LG), padx=PAD_LG)
         github_label.bind("<Button-1>", lambda e: self.open_link("https://github.com/osu-mp/AccelScope"))
 
         # Create a contact information label with the email acting as a link
         contact_label = ttk.Label(self, text="Contact: paceym@oregonstate.edu", foreground="blue", cursor="hand2")
-        contact_label.grid(row=3, column=0, pady=(0, 10), padx=10)
+        contact_label.grid(row=3, column=0, pady=(0, PAD_LG), padx=PAD_LG)
         contact_label.bind("<Button-1>", lambda e: self.copy_email_to_clipboard())
 
         # Add a Close button to close the dialog
         close_button = ttk.Button(self, text="Close", command=self.destroy)
-        close_button.grid(row=4, column=0, pady=(10, 10), padx=10)
+        close_button.grid(row=4, column=0, pady=(PAD_LG, PAD_LG), padx=PAD_LG)
 
     def open_link(self, url):
         webbrowser.open_new(url)

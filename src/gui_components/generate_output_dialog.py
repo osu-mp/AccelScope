@@ -1,6 +1,8 @@
 import logging
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
+
+from gui_components.gui_theme import PAD_MD, PAD_LG
 from models.output_settings import OutputSettings, DownsampleMethod, OutputPeriod, OutputType
 
 
@@ -15,61 +17,61 @@ class GenerateOutputDialog(tk.Toplevel):
 
         # Row 0: Input Frequency (read-only label)
         freq_text = f"Input Frequency: {input_frequency} Hz" if input_frequency is not None else "Input Frequency: Unknown"
-        ttk.Label(self, text=freq_text).grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text=freq_text).grid(row=0, column=0, columnspan=3, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
 
         # Row 1: Output Frequency Dropdown
-        ttk.Label(self, text="Output Frequency (Hz):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Output Frequency (Hz):").grid(row=1, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.output_frequency_var = tk.StringVar(value="16")
         self.output_frequency_combo = ttk.Combobox(self, textvariable=self.output_frequency_var,
                                                    values=["1", "2", "4", "8", "16"], state="readonly")
-        self.output_frequency_combo.grid(row=1, column=1, columnspan=2, sticky=tk.EW, padx=5, pady=5)
+        self.output_frequency_combo.grid(row=1, column=1, columnspan=2, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
 
         # Row 2: Downsampling Method — 4 checkboxes
-        ttk.Label(self, text="Downsampling Method:").grid(row=2, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Downsampling Method:").grid(row=2, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         checkbox_frame = ttk.Frame(self)
-        checkbox_frame.grid(row=2, column=1, columnspan=2, sticky=tk.W, padx=5, pady=5)
+        checkbox_frame.grid(row=2, column=1, columnspan=2, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
 
         self.ds_average_var = tk.BooleanVar(value=True)
         self.ds_nth_var = tk.BooleanVar(value=False)
         self.ds_min_var = tk.BooleanVar(value=False)
         self.ds_max_var = tk.BooleanVar(value=False)
 
-        ttk.Checkbutton(checkbox_frame, text="Average", variable=self.ds_average_var).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Checkbutton(checkbox_frame, text="Nth Value", variable=self.ds_nth_var).pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Checkbutton(checkbox_frame, text="Min", variable=self.ds_min_var).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Checkbutton(checkbox_frame, text="Average", variable=self.ds_average_var).pack(side=tk.LEFT, padx=(0, PAD_LG))
+        ttk.Checkbutton(checkbox_frame, text="Nth Value", variable=self.ds_nth_var).pack(side=tk.LEFT, padx=(0, PAD_LG))
+        ttk.Checkbutton(checkbox_frame, text="Min", variable=self.ds_min_var).pack(side=tk.LEFT, padx=(0, PAD_LG))
         ttk.Checkbutton(checkbox_frame, text="Max", variable=self.ds_max_var).pack(side=tk.LEFT)
 
         # Row 3: Output Period
-        ttk.Label(self, text="Output Period:").grid(row=3, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Output Period:").grid(row=3, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.output_period_var = tk.StringVar(value=OutputPeriod.ENTIRE_INPUT.value)
         self.output_period_combo = ttk.Combobox(self, textvariable=self.output_period_var,
                                                 values=[e.value for e in OutputPeriod], state="readonly")
-        self.output_period_combo.grid(row=3, column=1, columnspan=2, sticky=tk.EW, padx=5, pady=5)
+        self.output_period_combo.grid(row=3, column=1, columnspan=2, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
         self.output_period_var.trace_add("write", self._on_output_period_changed)
 
         # Row 4: Buffer Minutes
-        ttk.Label(self, text="Buffer Minutes:").grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Buffer Minutes:").grid(row=4, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.buffer_minutes_var = tk.IntVar(value=5)
         self.buffer_minutes_spinbox = ttk.Spinbox(self, from_=0, to=60, textvariable=self.buffer_minutes_var)
-        self.buffer_minutes_spinbox.grid(row=4, column=1, columnspan=2, sticky=tk.EW, padx=5, pady=5)
+        self.buffer_minutes_spinbox.grid(row=4, column=1, columnspan=2, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
 
         # Row 5: Round to Minutes
-        ttk.Label(self, text="Round to Minutes:").grid(row=5, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Round to Minutes:").grid(row=5, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.round_to_minutes_var = tk.IntVar(value=1)
         self.round_to_minutes_spinbox = ttk.Spinbox(self, from_=0, to=60, textvariable=self.round_to_minutes_var)
-        self.round_to_minutes_spinbox.grid(row=5, column=1, columnspan=2, sticky=tk.EW, padx=5, pady=5)
+        self.round_to_minutes_spinbox.grid(row=5, column=1, columnspan=2, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
 
         # Row 6: Output Directory + Browse
-        ttk.Label(self, text="Output Directory:").grid(row=6, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(self, text="Output Directory:").grid(row=6, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
         self.output_directory_entry = ttk.Entry(self)
-        self.output_directory_entry.grid(row=6, column=1, sticky=tk.EW, padx=5, pady=5)
-        ttk.Button(self, text="Browse", command=self.select_output_directory).grid(row=6, column=2, padx=5, pady=5)
+        self.output_directory_entry.grid(row=6, column=1, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
+        ttk.Button(self, text="Browse", command=self.select_output_directory).grid(row=6, column=2, padx=PAD_MD, pady=PAD_MD)
 
         # Row 7: Cancel / Generate Output buttons
         button_frame = ttk.Frame(self)
-        button_frame.grid(row=7, column=0, columnspan=3, pady=10)
-        ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Generate Output", command=self.generate_output).pack(side=tk.LEFT, padx=5)
+        button_frame.grid(row=7, column=0, columnspan=3, pady=PAD_LG)
+        ttk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.LEFT, padx=PAD_MD)
+        ttk.Button(button_frame, text="Generate Output", command=self.generate_output).pack(side=tk.LEFT, padx=PAD_MD)
 
         # Configure column layout
         self.grid_columnconfigure(0, weight=1)
