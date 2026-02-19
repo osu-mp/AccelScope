@@ -24,7 +24,7 @@ class BEBEOutput(OutputGeneratorInterface):
 	def __init__(self):
 		pass
 
-	def generate_output(self, project_config: ProjectConfig, output_dir: str, settings: OutputSettings):
+	def generate_output(self, project_config: ProjectConfig, output_dir: str, settings: OutputSettings, progress_callback=None):
 		"""
 		Generate BEBE output files for all file entries in the project.
 
@@ -76,8 +76,11 @@ class BEBEOutput(OutputGeneratorInterface):
 		next_individual_int = 0
 
 		output_files = []
+		total = len(file_entries)
 
-		for file_entry in file_entries:
+		for i, file_entry in enumerate(file_entries):
+			if progress_callback:
+				progress_callback(i, total, file_entry.path)
 			try:
 				result = self._process_file(
 					file_entry, data_root, loader, settings, downsample_ratio,
@@ -90,6 +93,9 @@ class BEBEOutput(OutputGeneratorInterface):
 					output_files.extend(result["files"])
 			except Exception as e:
 				logging.error(f"Error processing {file_entry.path}: {e}")
+
+		if progress_callback:
+			progress_callback(total, total, "")
 
 		# Write dataset_metadata.yaml for each method subfolder
 		for method in settings.downsample_methods:

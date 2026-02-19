@@ -403,10 +403,15 @@ class MainApplication(tk.Tk):
         """Run BEBE output generation in a background thread."""
         try:
             bebe = BEBEOutput()
+
+            def progress_callback(current, total, file_path):
+                self.after(0, lambda c=current, t=total, f=file_path: progress_dialog.update_progress(c, t, f))
+
             output_files = bebe.generate_output(
                 self.project_service.current_project_config,
                 output_directory,
-                output_settings
+                output_settings,
+                progress_callback=progress_callback
             )
 
             if not progress_dialog.cancelled:
