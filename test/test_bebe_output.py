@@ -16,7 +16,7 @@ import shutil
 import sys
 import tempfile
 import unittest
-from datetime import time
+from datetime import datetime, time
 from pathlib import Path
 
 import yaml
@@ -170,8 +170,8 @@ class TestBEBEOutputCSVFormat(unittest.TestCase):
 
         # Labels within the data range (05:58:00 - 05:59:00)
         self.labels = [
-            Label("05:58:10.000000", "05:58:20.000000", "Stalk"),
-            Label("05:58:25.000000", "05:58:35.000000", "Kill Phase 1"),
+            Label("2018-06-08T05:58:10.000000", "2018-06-08T05:58:20.000000", "Stalk"),
+            Label("2018-06-08T05:58:25.000000", "2018-06-08T05:58:35.000000", "Kill Phase 1"),
         ]
         self.file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=self.labels, user_verified=True)
 
@@ -473,7 +473,7 @@ class TestBEBELabeledWithBuffer(unittest.TestCase):
     def test_labeled_with_buffer_reduces_rows(self):
         """Labeled with buffer should output fewer rows than entire input."""
         # Label covers only ~10 seconds in the middle of 60 minutes of data
-        labels = [Label("05:55:00.000000", "05:55:10.000000", "Stalk")]
+        labels = [Label("2018-06-08T05:55:00.000000", "2018-06-08T05:55:10.000000", "Stalk")]
         file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=labels)
 
         config = build_test_project(self.data_dir, [file_entry])

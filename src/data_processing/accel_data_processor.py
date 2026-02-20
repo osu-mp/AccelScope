@@ -8,14 +8,14 @@ class AccelDataProcessor:
         """
         Find the nearest label boundaries around input_time.
 
-        Labels use datetime.time, so input_time is converted to time for comparison.
-        Fallback boundaries (start/end of data) are returned as datetime.time as well.
+        Labels are datetime objects. input_time is converted to datetime for comparison.
+        Fallback boundaries (start/end of data) are returned as datetime as well.
         """
-        # Normalize input_time to datetime.time for comparison with label times
-        if isinstance(input_time, datetime.datetime):
-            input_time = input_time.time()
-        elif isinstance(input_time, pd.Timestamp):
-            input_time = input_time.time()
+        # Normalize input_time to datetime for comparison with label times
+        if isinstance(input_time, pd.Timestamp):
+            input_time = input_time.to_pydatetime()
+        elif isinstance(input_time, datetime.time):
+            input_time = datetime.datetime.combine(datetime.datetime.min, input_time)
 
         # Sort the labels by their start time to ensure correct ordering
         labels = sorted(labels, key=lambda x: x.start_time)
@@ -41,11 +41,11 @@ class AccelDataProcessor:
         # If there's no previous label, set it to the start of the data
         if prev_label is None:
             ts_min = data['Timestamp'].min()
-            prev_label = ts_min.time() if isinstance(ts_min, (pd.Timestamp, datetime.datetime)) else ts_min
+            prev_label = ts_min.to_pydatetime() if isinstance(ts_min, pd.Timestamp) else ts_min
 
         # If there's no next label, set it to the end of the data
         if next_label is None:
             ts_max = data['Timestamp'].max()
-            next_label = ts_max.time() if isinstance(ts_max, (pd.Timestamp, datetime.datetime)) else ts_max
+            next_label = ts_max.to_pydatetime() if isinstance(ts_max, pd.Timestamp) else ts_max
 
         return prev_label, next_label

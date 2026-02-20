@@ -1,4 +1,7 @@
 import logging
+import os
+from datetime import datetime
+
 import pandas as pd
 from input_types.input_interface import InputInterface
 from models.axes_config import AxesConfig, AxisDisplay
@@ -25,6 +28,8 @@ class VectronicMotionInput(InputInterface):
     def load_data(self, file_path: str) -> pd.DataFrame:
         """
         Load data from a Vectronic Motion CSV file, creating a timestamp column.
+        Extracts the date from the filename (expected format: YYYY-MM-DD.csv) and
+        combines it with the time-of-day to produce full datetime timestamps.
 
         :param file_path: Path to the data file.
         :return: DataFrame containing the input data.
@@ -45,6 +50,16 @@ class VectronicMotionInput(InputInterface):
 
                 # Drop original columns after combining
                 df.drop(columns=['UTC DateTime', 'Milliseconds'], inplace=True)
+
+                # Try to extract date from filename and inject into timestamps
+                date_str = os.path.splitext(os.path.basename(file_path))[0]
+                try:
+                    file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                    base = pd.Timestamp(datetime.combine(file_date, datetime.min.time()))
+                    time_of_day = df['Timestamp'] - df['Timestamp'].dt.normalize()
+                    df['Timestamp'] = base + time_of_day
+                except ValueError:
+                    logging.warning(f"Could not parse date from filename '{date_str}', using default date")
             else:
                 missing_cols = [col for col in ['UTC DateTime', 'Milliseconds'] if col not in df.columns]
                 raise KeyError(f"Missing required columns: {', '.join(missing_cols)}")

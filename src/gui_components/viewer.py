@@ -1,6 +1,8 @@
 import copy
 from datetime import datetime, date, time as dt_time, timedelta
 import logging
+import time as _time
+import numpy as np
 import pandas as pd
 import matplotlib.dates as mdates
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -32,6 +34,12 @@ class Viewer(tk.Frame):
         self.dragging = False
         self.project_config = None
         self.file_entry = None  # Reference to the project config's FileEntry for the loaded CSV
+        self._last_mouse_move = 0  # throttle timestamp for on_mouse_move
+        self._ts_numeric = None  # cached int64 ms timestamps for binary search
+        self._ts_naive = None  # cached tz-naive timestamp series
+        self._data_min = None  # cached min timestamp
+        self._data_max = None  # cached max timestamp
+        self._replot_after_id = None  # tkinter after() id for debounced replot
         self.setup_viewer()
 
     def set_info_pane(self, info_pane):
@@ -88,9 +96,9 @@ class Viewer(tk.Frame):
         elif direction == "right":
             new_xlim = [mdates.num2date(xlim[0]) + shift, mdates.num2date(xlim[1]) + shift]
 
-        # Get data boundaries as naive datetime
-        data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
-        data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
+        # Get data boundaries as naive datetime (using cached values)
+        data_min = self._data_min
+        data_max = self._data_max
 
         # Convert new limits to naive datetime for comparison
         new_xlim = [new_xlim[0].replace(tzinfo=None), new_xlim[1].replace(tzinfo=None)]
@@ -114,6 +122,9 @@ class Viewer(tk.Frame):
         # Update stored limits after interaction
         self.current_xlim = self.ax.get_xlim()
         self.current_ylim = self.ax.get_ylim()
+
+        # Schedule a debounced replot for view-aware downsampling
+        self._schedule_replot()
 
     def on_scroll(self, event):
         """
@@ -141,11 +152,6 @@ class Viewer(tk.Frame):
         if project_config:
             self.project_config = project_config
 
-            # relative_path = self.data_path.replace(self.project_config.data_root_directory, "").lstrip(
-            #     '/')
-            #
-            # self.file_entry = self.project_config.find_file_by_name(relative_path)
-
     def load_file_entry(self, file_entry):
         """Load a file entry and configure the viewer accordingly."""
         # Store the file entry and retrieve the file path
@@ -160,6 +166,12 @@ class Viewer(tk.Frame):
             # Load data using the input interface
             self.data = input_interface.load_data(file_path)
             input_interface.validate_format(self.data)  # Optional validation step
+
+            # Cache timestamp data for performance
+            self._ts_numeric = self.data['Timestamp'].values.astype('int64') // 10**6  # ms as int64
+            self._ts_naive = self.data['Timestamp'].dt.tz_localize(None)
+            self._data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
+            self._data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
 
             # Set up axes configuration
             self.set_axes_config(input_interface.get_axes_config())
@@ -199,16 +211,55 @@ class Viewer(tk.Frame):
         self.active_axes = active_axes
         self.update_plot()  # Trigger a plot update whenever active axes change
 
-    def plot_data(self):
-        self.ax.clear()
+    def _get_visible_range(self):
+        """Return (start_idx, end_idx) slice indices for the currently visible x-range, with a buffer."""
+        if self.current_xlim is None or self._ts_numeric is None:
+            return 0, len(self._ts_numeric) if self._ts_numeric is not None else 0
+        # Convert matplotlib date nums to ms timestamps
+        xlim_min_dt = mdates.num2date(self.current_xlim[0]).replace(tzinfo=None)
+        xlim_max_dt = mdates.num2date(self.current_xlim[1]).replace(tzinfo=None)
+        xlim_min_ms = int(pd.Timestamp(xlim_min_dt).value // 10**6)
+        xlim_max_ms = int(pd.Timestamp(xlim_max_dt).value // 10**6)
+        # Add 10% buffer on each side so panning doesn't immediately show gaps
+        visible_range_ms = xlim_max_ms - xlim_min_ms
+        buffer_ms = int(visible_range_ms * 0.1)
+        start_idx = max(0, np.searchsorted(self._ts_numeric, xlim_min_ms - buffer_ms))
+        end_idx = min(len(self._ts_numeric), np.searchsorted(self._ts_numeric, xlim_max_ms + buffer_ms))
+        return start_idx, end_idx
 
+    def _downsample_for_display(self, timestamps, values, max_points=4000):
+        """Downsample data for display, preserving visual peaks via min/max per chunk."""
+        n = len(timestamps)
+        if n <= max_points:
+            return timestamps, values
+        chunk_size = n // (max_points // 2)  # 2 points per chunk (min + max)
+        if chunk_size < 1:
+            return timestamps, values
+        indices = []
+        for i in range(0, n, chunk_size):
+            chunk = values[i:i + chunk_size]
+            if len(chunk) > 0:
+                indices.append(i + chunk.argmin())
+                indices.append(i + chunk.argmax())
+        indices = sorted(set(indices))
+        return timestamps[indices], values[indices]
+
+    def _schedule_replot(self):
+        """Debounced replot after zoom/pan — waits 200ms of inactivity before replotting."""
+        if self._replot_after_id is not None:
+            self.after_cancel(self._replot_after_id)
+        self._replot_after_id = self.after(200, self._deferred_replot)
+
+    def _deferred_replot(self):
+        """Replot with view-aware downsampling after zoom/pan settles."""
+        self._replot_after_id = None
+        self.plot_data()
+
+    def _draw_label_rectangles(self):
+        """Draw label rectangles on the existing axes. Returns the rectangles dict."""
         self.rectangles = {}
+        bottom, top = self.current_ylim
 
-        # Set Y-limits based on actual data range if they haven't been set before
-        self.set_y_limits()
-        bottom, top = self.current_ylim  # Use correct Y-limits from the data range
-
-        # Plot the labeled sections as semi-transparent boxes
         for label in self.labels:
             if label.start_time is None or label.end_time is None:
                 logging.warning(f"Label '{label.behavior}' has invalid start or end time and will be skipped.")
@@ -223,32 +274,44 @@ class Viewer(tk.Frame):
                 color = 'gray'
                 alpha = 0.2
 
-            # Convert time to datetime by combining it with a reference date
-            ref_date = self.data['Timestamp'].dt.normalize().iloc[0].to_pydatetime().date()
-            ref_date = date(1900, 1, 1)  # Using a consistent reference date
-
-            # Ensure label times are of type time before combining with date
-            start_time = label.start_time.time() if isinstance(label.start_time, datetime) else label.start_time
-            end_time = label.end_time.time() if isinstance(label.end_time, datetime) else label.end_time
-
-            start_dt = datetime.combine(ref_date, start_time)
-            end_dt = datetime.combine(ref_date, end_time)
-
-            # Convert datetime to numeric value for plotting
-            start_num = mdates.date2num(start_dt)
-            end_num = mdates.date2num(end_dt)
+            # Labels are datetime objects — use directly with mdates
+            start_num = mdates.date2num(label.start_time)
+            end_num = mdates.date2num(label.end_time)
 
             rect = Rectangle((start_num, bottom), end_num - start_num, top - bottom, color=color, alpha=alpha, lw=2)
 
             self.ax.add_patch(rect)
             self.rectangles[label] = rect
 
+    def _redraw_labels(self):
+        """Redraw only label rectangles without replotting data lines."""
+        # Remove existing label patches
+        for patch in self.ax.patches[:]:
+            patch.remove()
+        self._draw_label_rectangles()
+        self.canvas.draw_idle()
+
+    def plot_data(self):
+        self.ax.clear()
+
+        # Set Y-limits based on config or defaults
+        self.set_y_limits()
+
+        # Plot the labeled sections as semi-transparent boxes
+        self._draw_label_rectangles()
+
+        # Determine visible data range for view-aware downsampling
+        start_idx, end_idx = self._get_visible_range()
+
         for axis_display in self.axes_config.axis_displays:
             # Ensure column exists in data
             if axis_display.input_name in self.data.columns and axis_display.input_name in self.active_axes:
                 color = axis_display.color
                 alpha = axis_display.alpha
-                self.ax.plot(self.data['Timestamp'], self.data[axis_display.input_name], color=color, alpha=alpha,
+                visible_ts = self.data['Timestamp'].values[start_idx:end_idx]
+                visible_vals = self.data[axis_display.input_name].values[start_idx:end_idx]
+                ts, vals = self._downsample_for_display(visible_ts, visible_vals)
+                self.ax.plot(ts, vals, color=color, alpha=alpha,
                              label=axis_display.display_name)
 
         if self.current_xlim:
@@ -266,29 +329,10 @@ class Viewer(tk.Frame):
         self.canvas.draw_idle()
 
     def set_y_limits(self):
-        # TODO: move this to the project config?
-        if True:
+        if self.project_config and hasattr(self.project_config, 'y_range'):
+            self.current_ylim = list(self.project_config.y_range)
+        else:
             self.current_ylim = [-5, 5]
-            return
-        # Dynamically set Y-limits based on the min and max of the configured data axes
-        y_min, y_max = None, None
-
-        # Iterate over the data_display config to determine min and max values
-        for display in self.project_config.data_display:
-            input_name = display.input_name  # Access the attribute directly
-            current_min = self.data[input_name].min()
-            current_max = self.data[input_name].max()
-
-            if y_min is None or current_min < y_min:
-                y_min = current_min
-            if y_max is None or current_max > y_max:
-                y_max = current_max
-
-        # Provide a default if no valid limits were found
-        if y_min is None or y_max is None:
-            y_min, y_max = -1, 1  # Provide a fallback range if no data was available or limits couldn't be determined
-
-        self.current_ylim = [y_min, y_max]
 
     def save_labels_to_project_config(self):
         """
@@ -302,31 +346,7 @@ class Viewer(tk.Frame):
             logging.warning("Unable to save labels to project config as no file entry found")
 
     def on_mouse_move(self, event):
-        if event.inaxes:
-            # Prepare data for cursor report
-            cursor_time = mdates.num2date(event.xdata).replace(tzinfo=None) if event.xdata else None
-            if not cursor_time:
-                time_str = '-'
-            else:
-                # Format time with milliseconds
-                ms = cursor_time.strftime('%f')[:3]
-                time_str = cursor_time.strftime('%H:%M:%S') + f".{ms}"
-            data_values = {}
-
-            # Convert Timestamp column to timezone-naive if it has timezone info
-            timestamp_data = self.data['Timestamp'].dt.tz_localize(None)
-
-            # Use axes_config to iterate over axis displays
-            for axis_display in self.axes_config.axis_displays:
-                if axis_display.input_name in self.data.columns:
-                    index = (timestamp_data - pd.Timestamp(cursor_time)).abs().idxmin()
-                    data_values[axis_display.input_name] = f"{self.data.iloc[index][axis_display.input_name]:.2f}"
-
-            # Update the InfoPane with current cursor position
-            if self.info_pane:
-                self.info_pane.update_cursor_report(time_str, data_values)
-
-        # Handle label dragging and edge detection, unchanged from your original method
+        # Handle label dragging first (unthrottled for responsiveness)
         if event.inaxes and self.dragging and self.selected_label:
             rect = self.rectangles[self.selected_label]
             if self.drag_edge == 'start':
@@ -341,7 +361,38 @@ class Viewer(tk.Frame):
                     self.ax.figure.canvas.draw_idle()
             return
 
-        # Set threshold and handle rectangle edge detection, unchanged from your original method
+        # Throttle remaining processing to ~30fps
+        now = _time.monotonic()
+        if now - self._last_mouse_move < 0.033:
+            return
+        self._last_mouse_move = now
+
+        if event.inaxes:
+            # Prepare data for cursor report
+            cursor_time = mdates.num2date(event.xdata).replace(tzinfo=None) if event.xdata else None
+            if not cursor_time:
+                time_str = '-'
+            else:
+                # Format time with milliseconds
+                ms = cursor_time.strftime('%f')[:3]
+                time_str = cursor_time.strftime('%H:%M:%S') + f".{ms}"
+            data_values = {}
+
+            # Binary search for nearest timestamp (O(log n) instead of O(n))
+            if cursor_time is not None and self._ts_numeric is not None:
+                cursor_ms = int(pd.Timestamp(cursor_time).value // 10**6)
+                idx = np.searchsorted(self._ts_numeric, cursor_ms)
+                idx = min(max(idx, 0), len(self._ts_numeric) - 1)
+
+                for axis_display in self.axes_config.axis_displays:
+                    if axis_display.input_name in self.data.columns:
+                        data_values[axis_display.input_name] = f"{self.data.iloc[idx][axis_display.input_name]:.2f}"
+
+            # Update the InfoPane with current cursor position
+            if self.info_pane:
+                self.info_pane.update_cursor_report(time_str, data_values)
+
+        # Set threshold and handle rectangle edge detection
         x_min, x_max = self.ax.get_xlim()
         axis_width = x_max - x_min
         threshold = axis_width * 0.005  # 0.5% of axis width for detection
@@ -367,9 +418,11 @@ class Viewer(tk.Frame):
         if self.info_pane:
             self.info_pane.reset_cursor_report()
 
-    def update_plot(self):
-        self.plot_data()
-        # self.canvas.draw()
+    def update_plot(self, labels_only=False):
+        if labels_only:
+            self._redraw_labels()
+        else:
+            self.plot_data()
 
     def zoom(self, cursor_xdata, zoom_factor):
         """
@@ -390,9 +443,9 @@ class Viewer(tk.Frame):
             mdates.date2num(xdata + (mdates.num2date(xlim[1]) - xdata) / zoom_factor)
         ]
 
-        # Get the boundaries of the data
-        data_min = mdates.date2num(self.data['Timestamp'].min())
-        data_max = mdates.date2num(self.data['Timestamp'].max())
+        # Get the boundaries of the data (using cached values)
+        data_min = mdates.date2num(self._data_min)
+        data_max = mdates.date2num(self._data_max)
 
         # Add a buffer of 10% to 20% to the data boundaries
         buffer_percentage = 0.1  # 10% buffer
@@ -418,7 +471,12 @@ class Viewer(tk.Frame):
         self.parent.set_status(msg)
 
         self.ax.set_xlim(new_xlim)
+        self.current_xlim = self.ax.get_xlim()
+        self.current_ylim = self.ax.get_ylim()
         self.canvas.draw_idle()
+
+        # Schedule a debounced replot for view-aware downsampling
+        self._schedule_replot()
 
     def on_click(self, event):
         if event.inaxes:
@@ -451,8 +509,8 @@ class Viewer(tk.Frame):
                             return
 
                 if self.start_label_time:
-                    # End of labeling
-                    end_time = mdates.num2date(event.xdata)
+                    # End of labeling — get full datetime from matplotlib
+                    end_time = mdates.num2date(event.xdata).replace(tzinfo=None)
 
                     start_time, end_time = self.validate_user_label_times(self.start_label_time, end_time)
                     print(f"{start_time=},{end_time=}")
@@ -470,8 +528,8 @@ class Viewer(tk.Frame):
 
                     self.start_label_time = None
                 else:
-                    # Start of labeling
-                    self.start_label_time = mdates.num2date(event.xdata)
+                    # Start of labeling — store full datetime
+                    self.start_label_time = mdates.num2date(event.xdata).replace(tzinfo=None)
                     self.parent.set_status("Left click to label end of behavior or right click to cancel")
 
                 # Restore the zoom level after adding the label
@@ -493,6 +551,7 @@ class Viewer(tk.Frame):
         """
         Ensure that the start time is before the end time. If not, swap them.
         This function also ensures that the label the user is trying to add does not overlap any existing labels.
+        Times are datetime objects.
         """
         # Ensure start time is before end time, if not, swap them
         if start_time > end_time:
@@ -505,38 +564,19 @@ class Viewer(tk.Frame):
         self.labels.sort(key=lambda x: x.start_time)
 
         for label in self.labels:
-            # Ensure both start_time and label times are treated as time objects
-            if isinstance(label.start_time, datetime):
-                label_start_time = label.start_time.time()
-            else:
-                label_start_time = label.start_time
-
-            if isinstance(label.end_time, datetime):
-                label_end_time = label.end_time.time()
-            else:
-                label_end_time = label.end_time
-
-            # Convert start_time and end_time to `time` objects if they are `datetime`
-            if isinstance(start_time, datetime):
-                start_time = start_time.time()
-            if isinstance(end_time, datetime):
-                end_time = end_time.time()
+            label_start = label.start_time
+            label_end = label.end_time
 
             # Check for overlap and adjust start/end times to prevent it
-            if label_start_time <= start_time <= label_end_time:
-                start_time = (datetime.combine(datetime.min, label_end_time) + buffer).time()
+            if label_start <= start_time <= label_end:
+                start_time = label_end + buffer
 
-            if label_start_time <= end_time <= label_end_time:
-                end_time = (datetime.combine(datetime.min, label_start_time) - buffer).time()
+            if label_start <= end_time <= label_end:
+                end_time = label_start - buffer
 
             # Ensure no overlap by making sure start_time is not after end_time
             if start_time > end_time:
                 start_time, end_time = end_time, start_time
-
-        if isinstance(start_time, datetime):
-            start_time = start_time.time()
-        if isinstance(end_time, datetime):
-            end_time = end_time.time()
 
         return start_time, end_time
 
@@ -568,14 +608,14 @@ class Viewer(tk.Frame):
             self.parent.set_status(f"Existing label changed to {new_behavior}")
             self.save_labels_to_project_config()  # Save changes
             self.update_label_list()  # Update the InfoPane display
-            self.update_plot()  # Replot with the updated label
+            self.update_plot(labels_only=True)  # Only redraw labels, not data
 
     def delete_label(self, label_to_delete):
         """Delete a label and update the plot and project config."""
         self.labels.remove(label_to_delete)  # Remove the label from the list
         self.save_labels_to_project_config()  # Save the updated labels
         self.update_label_list()  # Update the label display
-        self.update_plot()  # Redraw the plot without the deleted label
+        self.update_plot(labels_only=True)  # Only redraw labels, not data
         self.parent.set_status(f"Deleted label: {label_to_delete}")
 
     def on_mouse_release(self, event):
@@ -583,14 +623,14 @@ class Viewer(tk.Frame):
             # Update the label data only when the mouse is released.
             rect = self.rectangles[self.selected_label]
             if self.drag_edge == 'start':
-                new_start_time = mdates.num2date(rect.get_x()).time()  # Only store the time part
-                self.selected_label.start_time = new_start_time
+                new_start = mdates.num2date(rect.get_x()).replace(tzinfo=None)
+                self.selected_label.start_time = new_start
             elif self.drag_edge == 'end':
-                new_end_time = mdates.num2date(rect.get_x() + rect.get_width()).time()  # Only store the time part
-                self.selected_label.end_time = new_end_time
+                new_end = mdates.num2date(rect.get_x() + rect.get_width()).replace(tzinfo=None)
+                self.selected_label.end_time = new_end
 
             self.dragging = False
-            self.plot_data()  # Replot to ensure all elements are updated correctly
+            self._redraw_labels()  # Only redraw labels, not data lines
             self.update_label_list()  # Assuming a method to update the list display of labels
             self.save_labels_to_project_config()
             self.canvas.get_tk_widget().config(cursor="")
@@ -620,31 +660,20 @@ class Viewer(tk.Frame):
         self.labels = []
         self.canvas.draw_idle()  # Redraw the plot
 
-    @staticmethod
-    def to_datetime_if_time(ref_date, label_time):
-        """Convert time objects to datetime using ref_date, leave datetime objects as is."""
-        if isinstance(label_time, dt_time):
-            return datetime.combine(ref_date, label_time)
-        return label_time
-
     def zoom_in_on_all_labels(self, event=None):
         """Zoom the plot to fit all the labels from start of the first to end of the last."""
         if not self.labels:
             # No labels to zoom to
             self.parent.set_status("No labels found to fit in the view.")
-
             return
 
-        # Find the earliest start time and the latest end time from all labels
-        ref_date = self.data['Timestamp'].dt.normalize().iloc[0].to_pydatetime().date()
+        # Labels are datetime objects — use directly
+        min_start_time = min(label.start_time for label in self.labels)
+        max_end_time = max(label.end_time for label in self.labels)
 
-        # Convert all times to datetime for comparison
-        min_start_time = min(self.to_datetime_if_time(ref_date, label.start_time) for label in self.labels)
-        max_end_time = max(self.to_datetime_if_time(ref_date, label.end_time) for label in self.labels)
-
-        # Ensure min and max fit within the actual data boundaries
-        data_min = self.data['Timestamp'].min()
-        data_max = self.data['Timestamp'].max()
+        # Ensure min and max fit within the actual data boundaries (using cached values)
+        data_min = self._data_min
+        data_max = self._data_max
 
         if min_start_time < data_min:
             min_start_time = data_min
@@ -669,7 +698,7 @@ class Viewer(tk.Frame):
         self.current_xlim = self.ax.get_xlim()
         self.current_ylim = self.ax.get_ylim()
 
-        self.parent.set_status(f"Zoomed to fit all labels from {min_start_time.time()} to {max_end_time.time()}.")
+        self.parent.set_status(f"Zoomed to fit all labels from {min_start_time.strftime('%H:%M:%S')} to {max_end_time.strftime('%H:%M:%S')}.")
 
     def zoom_out_to_show_all(self, event=None):
         """Zoom the plot to display all available data."""
@@ -677,13 +706,9 @@ class Viewer(tk.Frame):
             self.parent.set_status("No data available to display.")
             return
 
-        # Get the min and max values of the data's timestamps
-        data_min = self.data['Timestamp'].min()
-        data_max = self.data['Timestamp'].max()
-
-        # Convert to numeric format for Matplotlib
-        data_min_num = mdates.date2num(data_min)
-        data_max_num = mdates.date2num(data_max)
+        # Get the min and max values of the data's timestamps (using cached values)
+        data_min_num = mdates.date2num(self._data_min)
+        data_max_num = mdates.date2num(self._data_max)
 
         # Calculate a 10% margin to add to the limits
         data_range = data_max_num - data_min_num

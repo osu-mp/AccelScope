@@ -6,6 +6,12 @@ from models.label_display import LabelDisplay
 from models.output_settings import OutputSettings
 
 
+# Defaults for new config fields
+DEFAULT_Y_RANGE = [-5, 5]
+DEFAULT_INDIVIDUAL_ID_REGEX = r"(?P<individual>[^_]+)_"
+DEFAULT_PLOT_TITLE_FORMAT = "{individual}    {filename_stem}"
+
+
 class ProjectConfig:
     """
     High level structure of the project config. Contains a user defined directory structure
@@ -16,7 +22,8 @@ class ProjectConfig:
     Additionally, it supports user-specific `data_root_directory` paths.
     """
     def __init__(self, proj_name, data_root_directory=None, entries=None, label_display=None,
-                 output_settings=None, input_settings=None):
+                 output_settings=None, input_settings=None,
+                 y_range=None, individual_id_regex=None, plot_title_format=None):
         """
         :param proj_name: The project name.
         :param data_root_directory: Dictionary of {user -> path} mappings, or a single path for legacy support.
@@ -24,13 +31,19 @@ class ProjectConfig:
         :param label_display: List of label display settings.
         :param output_settings: Config for generating output data.
         :param input_settings: Config for reading input data.
+        :param y_range: Fixed Y-axis range for the viewer, e.g. [-5, 5].
+        :param individual_id_regex: Regex with named group 'individual' applied to relative file path.
+        :param plot_title_format: Template string using {individual} and {filename_stem}.
         """
         self.proj_name = proj_name
         self.data_root_directory = data_root_directory or {"default": None}
         self.entries = entries or []
         self.label_display = label_display or []
         self.output_settings = output_settings or OutputSettings()
-        self.input_settings = input_settings or InputSettings()  # Initialize with a default InputSettings instance
+        self.input_settings = input_settings or InputSettings()
+        self.y_range = y_range if y_range is not None else list(DEFAULT_Y_RANGE)
+        self.individual_id_regex = individual_id_regex if individual_id_regex is not None else DEFAULT_INDIVIDUAL_ID_REGEX
+        self.plot_title_format = plot_title_format if plot_title_format is not None else DEFAULT_PLOT_TITLE_FORMAT
 
     def to_dict(self):
         """Convert the project config into a dictionary format."""
@@ -40,7 +53,10 @@ class ProjectConfig:
             "entries": [entry.to_dict() for entry in self.entries],
             "label_display": [display.to_dict() for display in self.label_display],
             "output_settings": self.output_settings.to_dict(),
-            "input_settings": self.input_settings.to_dict()  # Add input settings to output dict
+            "input_settings": self.input_settings.to_dict(),
+            "y_range": self.y_range,
+            "individual_id_regex": self.individual_id_regex,
+            "plot_title_format": self.plot_title_format,
         }
 
     @staticmethod
@@ -61,7 +77,10 @@ class ProjectConfig:
             entries=entries,
             label_display=label_display,
             output_settings=output_settings,
-            input_settings=input_settings
+            input_settings=input_settings,
+            y_range=data.get("y_range"),
+            individual_id_regex=data.get("individual_id_regex"),
+            plot_title_format=data.get("plot_title_format"),
         )
 
     @staticmethod

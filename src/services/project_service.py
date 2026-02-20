@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import re
 import uuid
 from models.data_display import DataDisplay
 from models.directory_entry import DirectoryEntry
@@ -409,22 +410,30 @@ class ProjectService:
 
     def get_plot_title(self, file_entry):
         """
-        Return the plot title for the given file_entry
-        This currently uses the file path to determine, but could be customized later (possibly added to project config)
-        E.g. file_full_path = "C:/data_root/F202_27905_010518_072219/MotionData_27905/2018/06 Jun/09/2018-06-09.csv"
-        title = F202 -- 2018-06-09
-        :param file_entry:
-        :return:
+        Return the plot title for the given file_entry using config-driven regex and format.
+        Uses individual_id_regex to extract the individual ID from the relative file path,
+        and plot_title_format to build the title string.
         """
+        config = self.current_project_config
         file_full_path = self.get_file_path(file_entry)
-        # Extract the fifth parent directory as the coug_id
-        coug_collar = os.path.basename(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(file_full_path))))))
-        coug_id = coug_collar.split("_")[0]
-        # Extract the filename without extension as the date
-        date = os.path.splitext(os.path.basename(file_full_path))[0]
+        filename_stem = os.path.splitext(os.path.basename(file_full_path))[0]
 
-        return f"{coug_id}    {date}"
+        # Extract individual ID using config regex on relative path
+        individual = ""
+        if config and file_entry.path:
+            normalized_path = file_entry.path.replace("\\", "/")
+            match = re.search(config.individual_id_regex, normalized_path)
+            if match:
+                try:
+                    individual = match.group("individual")
+                except IndexError:
+                    individual = normalized_path.split("/")[0] if "/" in normalized_path else ""
+            else:
+                individual = normalized_path.split("/")[0] if "/" in normalized_path else ""
+
+        # Format the title
+        title_format = config.plot_title_format if config else "{individual}    {filename_stem}"
+        return title_format.format(individual=individual, filename_stem=filename_stem)
 
     def get_step_time_ms(self):
         """

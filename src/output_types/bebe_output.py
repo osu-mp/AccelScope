@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from datetime import datetime, timedelta
 
@@ -50,6 +51,9 @@ class BEBEOutput(OutputGeneratorInterface):
 		if not data_root:
 			raise ValueError("No active data root directory set.")
 
+		# Get individual ID regex from config
+		individual_id_regex = project_config.individual_id_regex
+
 		# Collect all file entries
 		file_entries = []
 		self._collect_file_entries(project_config.entries, file_entries)
@@ -85,7 +89,7 @@ class BEBEOutput(OutputGeneratorInterface):
 				result = self._process_file(
 					file_entry, data_root, loader, settings, downsample_ratio,
 					behavior_to_label_idx, individual_str_to_int, next_individual_int,
-					output_dir, method_metadata
+					output_dir, method_metadata, individual_id_regex
 				)
 				if result is not None:
 					next_individual_int = result["next_individual_int"]
@@ -116,22 +120,33 @@ class BEBEOutput(OutputGeneratorInterface):
 			elif isinstance(entry, DirectoryEntry):
 				self._collect_file_entries(entry.entries, result)
 
+	@staticmethod
+	def _extract_individual_id(file_path, regex_pattern):
+		"""Extract individual ID from file path using regex with named group 'individual'."""
+		normalized = file_path.replace("\\", "/")
+		match = re.search(regex_pattern, normalized)
+		if match:
+			try:
+				return match.group("individual")
+			except IndexError:
+				pass
+		# Fallback: first path component
+		parts = normalized.split("/")
+		return parts[0] if parts else "unknown"
+
 	def _process_file(self, file_entry, data_root, loader, settings, downsample_ratio,
 	                   behavior_to_label_idx, individual_str_to_int, next_individual_int,
-	                   output_dir, method_metadata):
+	                   output_dir, method_metadata, individual_id_regex):
 		"""Process a single file entry and write output CSVs for each selected method."""
 		file_path = os.path.join(data_root, file_entry.path)
 		if not os.path.isfile(file_path):
 			logging.warning(f"File not found, skipping: {file_path}")
 			return None
 
-		# Extract clip_id and individual_id from the path
-		# Path structure: F202_27905_010518_072219/MotionData_.../date.csv
-		# clip_id = first path component (e.g. F202_27905_010518_072219)
-		# individual_id = text before first underscore (e.g. F202)
+		# Extract clip_id and individual_id from the path using config regex
 		path_parts = file_entry.path.replace("\\", "/").split("/")
 		clip_id = path_parts[0]
-		individual_str = clip_id.split("_")[0]
+		individual_str = self._extract_individual_id(file_entry.path, individual_id_regex)
 
 		# Assign integer individual ID
 		if individual_str not in individual_str_to_int:
@@ -192,20 +207,11 @@ class BEBEOutput(OutputGeneratorInterface):
 		if not labels:
 			return df.iloc[0:0]  # Return empty DataFrame when no labels exist
 
-		# Build time ranges from labels
+		# Build datetime ranges from labels (labels are now datetime objects)
 		ranges = []
 		for label in labels:
-			start_time = label.start_time
-			end_time = label.end_time
-
-			# Convert to datetime for buffer math (use an arbitrary date)
-			base_date = datetime(2000, 1, 1)
-			start_dt = datetime.combine(base_date, start_time)
-			end_dt = datetime.combine(base_date, end_time)
-
-			# Handle midnight crossing
-			if end_dt <= start_dt:
-				end_dt += timedelta(days=1)
+			start_dt = label.start_time
+			end_dt = label.end_time
 
 			# Apply buffer
 			start_dt -= timedelta(minutes=buffer_minutes)
@@ -224,52 +230,36 @@ class BEBEOutput(OutputGeneratorInterface):
 				if remainder > 0:
 					end_dt = datetime.fromtimestamp(end_epoch + (round_seconds - remainder))
 
-			ranges.append((start_dt.time(), end_dt.time()))
+			ranges.append((start_dt, end_dt))
 
-		# Merge overlapping ranges (sort by start, merge)
-		ranges = self._merge_time_ranges(ranges)
+		# Merge overlapping ranges
+		ranges = self._merge_datetime_ranges(ranges)
 
-		# Filter rows whose Timestamp.time() falls within any range
+		# Filter rows whose Timestamp falls within any range
 		mask = pd.Series(False, index=df.index)
-		for start_t, end_t in ranges:
-			row_times = df["Timestamp"].dt.time
-			if start_t <= end_t:
-				mask |= (row_times >= start_t) & (row_times <= end_t)
-			else:
-				# Midnight crossing
-				mask |= (row_times >= start_t) | (row_times <= end_t)
+		row_timestamps = df["Timestamp"]
+		for start_dt, end_dt in ranges:
+			start_ts = pd.Timestamp(start_dt)
+			end_ts = pd.Timestamp(end_dt)
+			mask |= (row_timestamps >= start_ts) & (row_timestamps <= end_ts)
 
 		return df[mask].reset_index(drop=True)
 
-	def _merge_time_ranges(self, ranges):
-		"""Merge overlapping time ranges. Handles simple cases (no midnight crossing in merged result)."""
+	def _merge_datetime_ranges(self, ranges):
+		"""Merge overlapping datetime ranges."""
 		if not ranges:
 			return ranges
 
-		# Convert to comparable format using datetime for sorting
-		base = datetime(2000, 1, 1)
-		dt_ranges = []
-		for s, e in ranges:
-			s_dt = datetime.combine(base, s)
-			e_dt = datetime.combine(base, e)
-			if e_dt < s_dt:
-				e_dt += timedelta(days=1)
-			dt_ranges.append((s_dt, e_dt))
+		ranges_sorted = sorted(ranges, key=lambda x: x[0])
 
-		dt_ranges.sort(key=lambda x: x[0])
-
-		merged = [dt_ranges[0]]
-		for start, end in dt_ranges[1:]:
+		merged = [ranges_sorted[0]]
+		for start, end in ranges_sorted[1:]:
 			if start <= merged[-1][1]:
 				merged[-1] = (merged[-1][0], max(merged[-1][1], end))
 			else:
 				merged.append((start, end))
 
-		# Convert back to time
-		result = []
-		for s_dt, e_dt in merged:
-			result.append((s_dt.time(), e_dt.time()))
-		return result
+		return merged
 
 	def _assign_labels(self, df, labels, behavior_to_label_idx):
 		"""Assign integer label to each row based on whether its timestamp falls within a label range."""
@@ -278,26 +268,18 @@ class BEBEOutput(OutputGeneratorInterface):
 		if not labels or "Timestamp" not in df.columns:
 			return label_col
 
-		row_times = df["Timestamp"].dt.time.values
+		row_timestamps = df["Timestamp"].values
 
 		for label in labels:
 			idx = behavior_to_label_idx.get(label.behavior, 0)
 			if idx == 0:
 				continue
 
-			start_t = label.start_time
-			end_t = label.end_time
+			start_ts = np.datetime64(label.start_time)
+			end_ts = np.datetime64(label.end_time)
 
-			if start_t <= end_t:
-				# Normal case
-				for i, rt in enumerate(row_times):
-					if start_t <= rt <= end_t:
-						label_col[i] = idx
-			else:
-				# Midnight crossing
-				for i, rt in enumerate(row_times):
-					if rt >= start_t or rt <= end_t:
-						label_col[i] = idx
+			mask = (row_timestamps >= start_ts) & (row_timestamps <= end_ts)
+			label_col[mask] = idx
 
 		return label_col
 

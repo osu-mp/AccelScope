@@ -22,10 +22,10 @@ class TestAccelDataProcessor(unittest.TestCase):
             'Acc Z [g]': range(20, 30)
         })
 
-        # Sample labels (Label uses datetime.time, not full datetime)
+        # Labels use full datetime to match the data timestamps
         self.labels = [
-            Label(start_time=time(8, 2, 0), end_time=time(8, 4, 0), behavior='Stalk'),
-            Label(start_time=time(8, 5, 0), end_time=time(8, 7, 0), behavior='Feed')
+            Label(start_time=datetime(2023, 9, 1, 8, 2, 0), end_time=datetime(2023, 9, 1, 8, 4, 0), behavior='Stalk'),
+            Label(start_time=datetime(2023, 9, 1, 8, 5, 0), end_time=datetime(2023, 9, 1, 8, 7, 0), behavior='Feed')
         ]
 
     def test_find_nearest_behaviors_middle(self):
@@ -39,7 +39,7 @@ class TestAccelDataProcessor(unittest.TestCase):
         input_time = datetime(2023, 9, 1, 8, 0, 0)
         prev_label, next_label = AccelDataProcessor.find_nearest_behaviors(self.data, self.labels, input_time)
 
-        self.assertEqual(prev_label, self.data['Timestamp'].min().time())
+        self.assertEqual(prev_label, self.data['Timestamp'].min().to_pydatetime())
         self.assertEqual(next_label, self.labels[0].start_time)
 
     def test_find_nearest_behaviors_after_last_label(self):
@@ -47,7 +47,7 @@ class TestAccelDataProcessor(unittest.TestCase):
         prev_label, next_label = AccelDataProcessor.find_nearest_behaviors(self.data, self.labels, input_time)
 
         self.assertEqual(prev_label, self.labels[-1].end_time)
-        self.assertEqual(next_label, self.data['Timestamp'].max().time())
+        self.assertEqual(next_label, self.data['Timestamp'].max().to_pydatetime())
 
     def test_find_nearest_behaviors_within_label(self):
         input_time = datetime(2023, 9, 1, 8, 6, 0)

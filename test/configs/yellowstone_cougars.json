@@ -3,7 +3,9 @@
     "data_root_directory": {
         "default": ".",
         "mpace": "D:/OSU/cougar_data",
-        "wbinde": "TODO get external path from Wes"
+        "wbinde": "TODO get external path from Wes",
+        "active": "C:/repos/cougar_data",
+        "matthew": "C:/repos/cougar_data"
     },
     "entries": [
         {
@@ -21,23 +23,23 @@
                             "id": "807ab4a9",
                             "labels": [
                                 {
-                                    "start_time": "05:58:42.428860",
-                                    "end_time": "05:59:15.582820",
+                                    "start_time": "2018-06-08T05:58:42.428860",
+                                    "end_time": "2018-06-08T05:59:15.582820",
                                     "behavior": "Stalk"
                                 },
                                 {
-                                    "start_time": "05:59:15.645820",
-                                    "end_time": "05:59:33.922180",
+                                    "start_time": "2018-06-08T05:59:15.645820",
+                                    "end_time": "2018-06-08T05:59:33.922180",
                                     "behavior": "Kill Phase 1"
                                 },
                                 {
-                                    "start_time": "05:59:33.985180",
-                                    "end_time": "06:00:22.024780",
+                                    "start_time": "2018-06-08T05:59:33.985180",
+                                    "end_time": "2018-06-08T06:00:22.024780",
                                     "behavior": "Kill Phase 2"
                                 },
                                 {
-                                    "start_time": "06:06:57.079280",
-                                    "end_time": "06:31:43.498520",
+                                    "start_time": "2018-06-08T06:06:57.079280",
+                                    "end_time": "2018-06-08T06:31:43.498520",
                                     "behavior": "Feed"
                                 }
                             ],
@@ -56,23 +58,23 @@
                             "id": "614e23bb",
                             "labels": [
                                 {
-                                    "start_time": "09:03:56.615600",
-                                    "end_time": "09:08:41.595640",
+                                    "start_time": "2018-03-24T09:03:56.615600",
+                                    "end_time": "2018-03-24T09:08:41.595640",
                                     "behavior": "Stalk"
                                 },
                                 {
-                                    "start_time": "09:08:41.658640",
-                                    "end_time": "09:17:07.601360",
+                                    "start_time": "2018-03-24T09:08:41.658640",
+                                    "end_time": "2018-03-24T09:17:07.601360",
                                     "behavior": "Kill Phase 1"
                                 },
                                 {
-                                    "start_time": "09:17:07.664360",
-                                    "end_time": "09:27:16.684780",
+                                    "start_time": "2018-03-24T09:17:07.664360",
+                                    "end_time": "2018-03-24T09:27:16.684780",
                                     "behavior": "Kill Phase 2"
                                 },
                                 {
-                                    "start_time": "09:32:02.985760",
-                                    "end_time": "09:46:16.033020",
+                                    "start_time": "2018-03-24T09:32:02.985760",
+                                    "end_time": "2018-03-24T09:46:16.033020",
                                     "behavior": "Feed"
                                 }
                             ],
@@ -84,18 +86,18 @@
                             "id": "2cb6ede1",
                             "labels": [
                                 {
-                                    "start_time": "11:00:35.225500",
-                                    "end_time": "11:05:09.763300",
+                                    "start_time": "2018-05-20T11:00:35.225500",
+                                    "end_time": "2018-05-20T11:05:09.763300",
                                     "behavior": "Stalk"
                                 },
                                 {
-                                    "start_time": "11:05:09.826300",
-                                    "end_time": "11:05:25.003180",
+                                    "start_time": "2018-05-20T11:05:09.826300",
+                                    "end_time": "2018-05-20T11:05:25.003180",
                                     "behavior": "Kill Phase 1"
                                 },
                                 {
-                                    "start_time": "11:09:04.215260",
-                                    "end_time": "11:36:14.061180",
+                                    "start_time": "2018-05-20T11:09:04.215260",
+                                    "end_time": "2018-05-20T11:36:14.061180",
                                     "behavior": "Feed"
                                 }
                             ],
@@ -170,5 +172,8 @@
     "input_settings": {
         "input_type": "VectronicMotion",
         "input_frequency": 16
-    }
+    },
+    "y_range": [-5, 5],
+    "individual_id_regex": "(?P<individual>[^_]+)_",
+    "plot_title_format": "{individual}    {filename_stem}"
 }

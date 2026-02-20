@@ -227,19 +227,10 @@ class InfoPane(ttk.Frame):
 
     @staticmethod
     def calculate_duration(start_time, end_time):
-        """Calculate the duration between two times and return a formatted string."""
-        if isinstance(start_time, datetime):
-            start_time = start_time.time()
-        if isinstance(end_time, datetime):
-            end_time = end_time.time()
+        """Calculate the duration between two times and return a formatted string.
+        Both start_time and end_time are datetime objects."""
+        duration = end_time - start_time
 
-        start_dt = datetime.combine(datetime.min, start_time)
-        end_dt = datetime.combine(datetime.min, end_time)
-
-        if end_dt < start_dt:
-            end_dt += timedelta(days=1)
-
-        duration = end_dt - start_dt
         if duration < timedelta(minutes=1):
             duration_str = f"{duration.total_seconds():.1f} sec"
         else:
