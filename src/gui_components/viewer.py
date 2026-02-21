@@ -11,6 +11,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import tkinter as tk
 from gui_components.behavior_selection_dialog import BehaviorSelectionDialog
+from gui_components.label_commands import (
+    LabelCommandStack, CreateLabelCommand, DeleteLabelCommand,
+    ResizeLabelCommand, ChangeBehaviorCommand
+)
 from input_types.vectronic_motion import VectronicMotionInput
 from models.label import Label
 from models.input_settings import InputType
@@ -40,6 +44,9 @@ class Viewer(tk.Frame):
         self._data_min = None  # cached min timestamp
         self._data_max = None  # cached max timestamp
         self._replot_after_id = None  # tkinter after() id for debounced replot
+        self._command_stack = LabelCommandStack()
+        self._drag_start_time = None  # saved start_time before drag
+        self._drag_end_time = None    # saved end_time before drag
         self.setup_viewer()
 
     def set_info_pane(self, info_pane):
@@ -62,6 +69,8 @@ class Viewer(tk.Frame):
         self.canvas.get_tk_widget().bind("<Down>", self.on_key_zoom_out)
         self.canvas.get_tk_widget().bind("<Left>", self.on_key_pan_left)
         self.canvas.get_tk_widget().bind("<Right>", self.on_key_pan_right)
+        self.canvas.get_tk_widget().bind("<Control-z>", self.on_undo)
+        self.canvas.get_tk_widget().bind("<Control-y>", self.on_redo)
 
     def on_key_zoom_in(self, event):
         """Handle zoom in on the center of the plot when the Up arrow key is pressed."""
@@ -179,6 +188,7 @@ class Viewer(tk.Frame):
             # Initialize labels and other file-related attributes
             self.data_path = file_path
             self.labels = file_entry.labels
+            self._command_stack.clear()
             self.setup_mouse_events()
 
             # Finalize loading status and update label display
@@ -501,6 +511,9 @@ class Viewer(tk.Frame):
                             self.selected_label = label
                             self.drag_edge = 'start' if abs(rect_start - event.xdata) <= threshold else 'end'
                             self.drag_start = event.xdata
+                            # Capture pre-drag state for undo
+                            self._drag_start_time = label.start_time
+                            self._drag_end_time = label.end_time
                             return
                         elif not self.start_label_time and rect_start < event.xdata < rect_end:
                             # Inside the rectangle
@@ -518,7 +531,7 @@ class Viewer(tk.Frame):
                     behavior = self.prompt_for_behavior()
                     if behavior:
                         new_label = Label(start_time, end_time, behavior)
-                        self.labels.append(new_label)
+                        self._command_stack.execute(CreateLabelCommand(new_label), self.labels)
 
                         # Update project config
                         self.parent.set_status(
@@ -604,7 +617,9 @@ class Viewer(tk.Frame):
 
         # If the user selected a behavior, update the label's behavior
         if new_behavior:
-            label.behavior = new_behavior
+            old_behavior = label.behavior
+            self._command_stack.execute(
+                ChangeBehaviorCommand(label, old_behavior, new_behavior), self.labels)
             self.parent.set_status(f"Existing label changed to {new_behavior}")
             self.save_labels_to_project_config()  # Save changes
             self.update_label_list()  # Update the InfoPane display
@@ -612,7 +627,8 @@ class Viewer(tk.Frame):
 
     def delete_label(self, label_to_delete):
         """Delete a label and update the plot and project config."""
-        self.labels.remove(label_to_delete)  # Remove the label from the list
+        index = self.labels.index(label_to_delete)
+        self._command_stack.execute(DeleteLabelCommand(label_to_delete, index), self.labels)
         self.save_labels_to_project_config()  # Save the updated labels
         self.update_label_list()  # Update the label display
         self.update_plot(labels_only=True)  # Only redraw labels, not data
@@ -624,10 +640,26 @@ class Viewer(tk.Frame):
             rect = self.rectangles[self.selected_label]
             if self.drag_edge == 'start':
                 new_start = mdates.num2date(rect.get_x()).replace(tzinfo=None)
-                self.selected_label.start_time = new_start
+                new_end = self.selected_label.end_time
             elif self.drag_edge == 'end':
+                new_start = self.selected_label.start_time
                 new_end = mdates.num2date(rect.get_x() + rect.get_width()).replace(tzinfo=None)
-                self.selected_label.end_time = new_end
+            else:
+                new_start = self.selected_label.start_time
+                new_end = self.selected_label.end_time
+
+            # Use command stack for undo support (don't re-execute — apply directly)
+            cmd = ResizeLabelCommand(
+                self.selected_label,
+                self._drag_start_time, self._drag_end_time,
+                new_start, new_end
+            )
+            # Apply the new times directly (redo would double-apply since rect already moved)
+            self.selected_label.start_time = new_start
+            self.selected_label.end_time = new_end
+            self.selected_label.duration = self.selected_label.calculate_duration()
+            self._command_stack._undo_stack.append(cmd)
+            self._command_stack._redo_stack.clear()
 
             self.dragging = False
             self._redraw_labels()  # Only redraw labels, not data lines
@@ -651,6 +683,26 @@ class Viewer(tk.Frame):
         dialog = BehaviorSelectionDialog(self, behaviors, title="Select Behavior")
         return dialog.result
 
+    def on_undo(self, event=None):
+        """Undo the last label operation."""
+        if self._command_stack.undo(self.labels):
+            self.save_labels_to_project_config()
+            self.update_label_list()
+            self.update_plot(labels_only=True)
+            self.parent.set_status("Undo")
+        else:
+            self.parent.set_status("Nothing to undo")
+
+    def on_redo(self, event=None):
+        """Redo the last undone label operation."""
+        if self._command_stack.redo(self.labels):
+            self.save_labels_to_project_config()
+            self.update_label_list()
+            self.update_plot(labels_only=True)
+            self.parent.set_status("Redo")
+        else:
+            self.parent.set_status("Nothing to redo")
+
     def clear_plot(self):
         """
         Clear the viewer
@@ -658,6 +710,7 @@ class Viewer(tk.Frame):
         """
         self.ax.clear()
         self.labels = []
+        self._command_stack.clear()
         self.canvas.draw_idle()  # Redraw the plot
 
     def zoom_in_on_all_labels(self, event=None):

@@ -14,6 +14,7 @@ class InfoPane(ttk.Frame):
         self.current_file_entry = None
         self.viewer = self.parent.viewer
         self.axis_vars = {}
+        self._comment_save_after_id = None  # debounce timer for comment auto-save
 
         # Retrieve the input settings and initialize the input interface to access display info
         self.input_interface = self.viewer.get_input_interface()
@@ -240,8 +241,15 @@ class InfoPane(ttk.Frame):
         return duration_str
 
     def on_comments_change(self, event):
-        """Handle changes to the comments text field."""
+        """Handle changes to the comments text field (debounced save)."""
         if self.current_file_entry:
-            new_comment = self.comments_text.get("1.0", tk.END).strip()
-            self.current_file_entry.comment = new_comment
-            self.project_service.save_project()
+            self.current_file_entry.comment = self.comments_text.get("1.0", tk.END).strip()
+            # Debounce: cancel any pending save and schedule a new one after 500ms
+            if self._comment_save_after_id is not None:
+                self.after_cancel(self._comment_save_after_id)
+            self._comment_save_after_id = self.after(500, self._save_comment)
+
+    def _save_comment(self):
+        """Actually persist the comment after debounce delay."""
+        self._comment_save_after_id = None
+        self.project_service.save_project()

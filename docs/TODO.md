@@ -1,6 +1,5 @@
 # TODO — Future Features
 
-- Undo/redo for label operations
 - UI to edit label_display (behavior types) after project creation
 - UI to edit input settings after project creation
 - Project-wide labeling progress dashboard / summary statistics
@@ -8,12 +7,9 @@
 - Search/filter in project browser (by status, filename, etc.)
 - Export/import labels as standalone CSV
 - Preferences dialog implementation
-- Confirmation before overwriting output directory
-- Cancel button actually stops background generation thread
-- Debounce comment auto-save (currently saves on every keystroke)
 - Multi-day file concatenation in viewer
 
-## Verify: Datetime & Config Generalization (current commit)
+## Verify: Datetime & Config Generalization
 
 - [ ] Open yellowstone_cougars project — verify labels load with dates, plot titles show correctly
 - [ ] Create a new label — verify it saves with full datetime (check JSON)
@@ -22,3 +18,15 @@
 - [ ] Create a new project — verify defaults work (no regex/y_range in config uses defaults)
 - [ ] Open a legacy project with time-only labels — verify backward compatibility
 - [ ] Drag-resize a label edge — verify updated time saves as full datetime
+
+## Verify: Quick Wins & Undo/Redo
+
+- [ ] Type rapidly in comments field — verify save only fires once after typing stops (check log)
+- [ ] Generate output to a non-empty directory — verify confirmation dialog appears
+- [ ] Click Cancel during output generation — verify it stops promptly
+- [ ] Create a label, then Ctrl+Z — verify label is removed
+- [ ] Ctrl+Y after undo — verify label is restored
+- [ ] Delete a label, then Ctrl+Z — verify label reappears
+- [ ] Drag a label edge, then Ctrl+Z — verify edge returns to original position
+- [ ] Change a label's behavior, then Ctrl+Z — verify original behavior is restored
+- [ ] Load a different file — verify undo stack is cleared (Ctrl+Z shows "Nothing to undo")

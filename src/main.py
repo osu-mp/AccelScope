@@ -22,6 +22,11 @@ from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
 
 
+class _GenerationCancelled(Exception):
+    """Raised when the user cancels output generation."""
+    pass
+
+
 class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -387,6 +392,16 @@ class MainApplication(tk.Tk):
                         logging.warning(error_msg)
 
     def start_output_generation(self, output_settings, output_directory):
+        # Check if output directory already has content
+        if os.path.isdir(output_directory) and os.listdir(output_directory):
+            if not messagebox.askyesno(
+                "Output Directory Not Empty",
+                f"The output directory already contains files:\n{output_directory}\n\n"
+                "Existing files may be overwritten. Continue?"
+            ):
+                self.set_status("Output generation cancelled.")
+                return
+
         # Open the progress dialog
         progress_dialog = OutputProgressDialog(self)
         progress_dialog.transient(self)
@@ -405,6 +420,8 @@ class MainApplication(tk.Tk):
             bebe = BEBEOutput()
 
             def progress_callback(current, total, file_path):
+                if progress_dialog.cancelled:
+                    raise _GenerationCancelled()
                 self.after(0, lambda c=current, t=total, f=file_path: progress_dialog.update_progress(c, t, f))
 
             output_files = bebe.generate_output(
@@ -417,6 +434,9 @@ class MainApplication(tk.Tk):
             if not progress_dialog.cancelled:
                 logging.info(f"Output generation completed. {len(output_files)} files written.")
                 self.after(0, lambda: self._on_generation_complete(progress_dialog, len(output_files)))
+        except _GenerationCancelled:
+            logging.info("Output generation cancelled by user.")
+            self.after(0, lambda: self.set_status("Output generation cancelled."))
         except Exception as e:
             logging.error(f"Error during output generation: {e}")
             self.after(0, lambda: self._on_generation_error(progress_dialog, str(e)))
