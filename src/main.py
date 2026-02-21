@@ -1,3 +1,4 @@
+import csv
 import logging
 import os.path
 import threading
@@ -6,6 +7,7 @@ from tkinter import Menu, filedialog, messagebox
 
 from gui_components import gui_theme
 from gui_components.about_dialog import AboutDialog
+from gui_components.edit_input_settings_dialog import EditInputSettingsDialog
 from gui_components.edit_label_display_dialog import EditLabelDisplayDialog
 from gui_components.info_pane import InfoPane
 from gui_components.generate_output_dialog import GenerateOutputDialog
@@ -169,6 +171,11 @@ class MainApplication(tk.Tk):
         proj_menu = Menu(self.menu_bar, tearoff=0)
         proj_menu.add_command(label='Change Data Root...', command=self.change_data_root)
         proj_menu.add_command(label='Edit Behavior Labels...', command=self.edit_label_display)
+        proj_menu.add_command(label='Edit Input Settings...', command=self.edit_input_settings)
+        proj_menu.add_separator()
+        proj_menu.add_command(label='Export Labels to CSV...', command=self.export_labels_csv)
+        proj_menu.add_command(label='Import Labels from CSV...', command=self.import_labels_csv)
+        proj_menu.add_separator()
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
@@ -291,6 +298,165 @@ class MainApplication(tk.Tk):
             self.viewer.update_plot()
             self.info_pane.update_legend()
             self.set_status("Behavior labels updated.")
+
+    def edit_input_settings(self):
+        """Open dialog to edit input settings (type, frequency, y-range, regex, plot title)."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        config = self.project_service.current_project_config
+        dialog = EditInputSettingsDialog(
+            self,
+            input_settings=config.input_settings,
+            y_range=config.y_range,
+            individual_id_regex=config.individual_id_regex,
+            plot_title_format=config.plot_title_format,
+        )
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        if dialog.result_ready:
+            config.input_settings = dialog.result_input_settings
+            config.y_range = dialog.result_y_range
+            config.individual_id_regex = dialog.result_individual_id_regex
+            config.plot_title_format = dialog.result_plot_title_format
+            self.project_service.save_project()
+            self.viewer.set_project_config(config)
+            self.viewer.update_plot()
+            self.set_status("Input settings updated.")
+
+    def _collect_file_entries(self, entries, result):
+        """Recursively collect all FileEntry objects from the project tree."""
+        for entry in entries:
+            if isinstance(entry, FileEntry):
+                result.append(entry)
+            elif isinstance(entry, DirectoryEntry):
+                self._collect_file_entries(entry.entries, result)
+
+    def export_labels_csv(self):
+        """Export all labels from the project to a CSV file."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV Files", "*.csv")],
+            title="Export Labels to CSV",
+        )
+        if not file_path:
+            return
+
+        file_entries = []
+        self._collect_file_entries(self.project_service.get_entries(), file_entries)
+
+        label_count = 0
+        with open(file_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["file_id", "file_path", "behavior", "start_time", "end_time"])
+            for fe in file_entries:
+                for label in fe.labels:
+                    writer.writerow([
+                        fe.id,
+                        fe.path,
+                        label.behavior,
+                        Label._serialize_time(label.start_time),
+                        Label._serialize_time(label.end_time),
+                    ])
+                    label_count += 1
+
+        messagebox.showinfo("Export Complete", f"Exported {label_count} labels to:\n{file_path}")
+        self.set_status(f"Exported {label_count} labels to CSV.")
+
+    def import_labels_csv(self):
+        """Import labels from a CSV file into the project."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        file_path = filedialog.askopenfilename(
+            filetypes=[("CSV Files", "*.csv")],
+            title="Import Labels from CSV",
+        )
+        if not file_path:
+            return
+
+        # Read and group rows by file_id
+        try:
+            with open(file_path, 'r', newline='') as f:
+                reader = csv.DictReader(f)
+                rows_by_file = {}
+                for row in reader:
+                    fid = row["file_id"]
+                    rows_by_file.setdefault(fid, []).append(row)
+        except Exception as e:
+            messagebox.showerror("Import Error", f"Failed to read CSV:\n{e}")
+            return
+
+        imported_labels = 0
+        imported_files = 0
+        skipped_files = []
+
+        for file_id, rows in rows_by_file.items():
+            # Look up file entry by ID, fall back to path
+            fe = self.project_service.find_file_by_id(file_id)
+            if fe is None:
+                # Try matching by path from the first row
+                target_path = rows[0].get("file_path", "")
+                file_entries = []
+                self._collect_file_entries(self.project_service.get_entries(), file_entries)
+                for candidate in file_entries:
+                    if candidate.path == target_path:
+                        fe = candidate
+                        break
+
+            if fe is None:
+                skipped_files.append(file_id)
+                continue
+
+            # Check for existing labels
+            if fe.labels:
+                answer = messagebox.askyesnocancel(
+                    "File Already Has Labels",
+                    f'"{fe.path}" already has {len(fe.labels)} labels.\n'
+                    f'Replace with {len(rows)} labels from CSV?',
+                )
+                if answer is None:
+                    # Cancel entire import
+                    self.set_status("Import cancelled.")
+                    return
+                if not answer:
+                    # Skip this file
+                    continue
+
+            # Create Label objects
+            try:
+                new_labels = [
+                    Label(r["start_time"], r["end_time"], r["behavior"])
+                    for r in rows
+                ]
+            except (ValueError, KeyError) as e:
+                messagebox.showerror("Import Error",
+                                     f"Error parsing labels for file {fe.path}:\n{e}")
+                continue
+
+            fe.labels = new_labels
+            imported_labels += len(new_labels)
+            imported_files += 1
+
+        self.project_service.save_project()
+
+        # Refresh viewer and info pane
+        self.viewer.update_plot()
+        self.info_pane.set_project_service(self.project_service)
+
+        summary = f"Imported {imported_labels} labels for {imported_files} files."
+        if skipped_files:
+            summary += f" {len(skipped_files)} files skipped (not found)."
+        messagebox.showinfo("Import Complete", summary)
+        self.set_status(summary)
 
     def _count_label_usage(self, entries, usage_counts):
         """Recursively count label behavior usage across all file entries."""
