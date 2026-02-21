@@ -17,6 +17,9 @@ class ProjectBrowser(ttk.Frame):
         self.title_label = ttk.Label(self, text="Project Browser", font=FONT_BODY)
         self.title_label.pack(side=tk.TOP, anchor=tk.W, padx=PAD_SM, pady=PAD_SM)
 
+        # Create filter bar between title and tree
+        self._create_filter_bar()
+
         # Create a frame for Treeview to ensure tight layout
         self.tree_frame = ttk.Frame(self)
         self.tree_frame.pack(fill=tk.BOTH, expand=True)
@@ -35,6 +38,64 @@ class ProjectBrowser(ttk.Frame):
 
         self.tree.bind("<Button-3>", self.show_context_menu)  # Right-click on Windows/Linux
         self.tree.bind("<Double-1>", self.on_double_click)
+
+    def _create_filter_bar(self):
+        """Create a filter bar with text search and status filter."""
+        filter_frame = ttk.Frame(self)
+        filter_frame.pack(side=tk.TOP, fill=tk.X, padx=PAD_SM, pady=PAD_SM)
+
+        self.filter_entry = ttk.Entry(filter_frame)
+        self.filter_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, PAD_SM))
+        self.filter_entry.bind("<KeyRelease>", lambda e: self._apply_filter())
+
+        self.status_filter_var = tk.StringVar(value="All")
+        self.status_filter_combo = ttk.Combobox(
+            filter_frame, textvariable=self.status_filter_var,
+            values=["All", "Verified", "Unverified"], state="readonly", width=10
+        )
+        self.status_filter_combo.pack(side=tk.LEFT, padx=(0, PAD_SM))
+        self.status_filter_combo.bind("<<ComboboxSelected>>", lambda e: self._apply_filter())
+
+        clear_btn = ttk.Button(filter_frame, text="Clear", width=5, command=self._clear_filter)
+        clear_btn.pack(side=tk.LEFT)
+
+    def _clear_filter(self):
+        """Reset filter controls and reload the tree."""
+        self.filter_entry.delete(0, tk.END)
+        self.status_filter_var.set("All")
+        self._apply_filter()
+
+    def _apply_filter(self):
+        """Reload the tree with current filter criteria."""
+        self.tree.delete(*self.tree.get_children())
+
+        if not self.project_service or not self.project_service.current_project_config:
+            return
+
+        text_filter = self.filter_entry.get().strip().lower()
+        status_filter = self.status_filter_var.get()
+
+        proj_name = self.project_service.get_project_name()
+        root_node = self.tree.insert('', 'end', proj_name, text=proj_name, open=True)
+
+        for entry in self.project_service.get_entries():
+            self._populate_tree(root_node, entry, text_filter, status_filter)
+
+    def _entry_matches_filter(self, entry, text_filter, status_filter):
+        """Check if a file or directory (recursively) matches the filter criteria."""
+        if isinstance(entry, FileEntry):
+            filename = entry.path.split('/')[-1].split('\\')[-1].lower()
+            if text_filter and text_filter not in filename:
+                return False
+            if status_filter == "Verified" and not entry.user_verified:
+                return False
+            if status_filter == "Unverified" and entry.user_verified:
+                return False
+            return True
+        elif isinstance(entry, DirectoryEntry):
+            return any(self._entry_matches_filter(child, text_filter, status_filter)
+                       for child in entry.entries)
+        return False
 
     def show_context_menu(self, event):
         iid = self.tree.identify_row(event.y)
@@ -156,20 +217,28 @@ class ProjectBrowser(ttk.Frame):
         for entry in self.project_service.get_entries():
             self._populate_tree(root_node, entry)
 
-    def _populate_tree(self, parent_node, entry):
+    def _populate_tree(self, parent_node, entry, text_filter="", status_filter="All"):
         """
         Recursively populates the tree view with the given directory structure or file entry.
         Args:
             parent_node: The tree node under which the entries will be added.
             entry: A DirectoryEntry or FileEntry instance to be added to the tree.
+            text_filter: Lowercase text to filter filenames by substring.
+            status_filter: "All", "Verified", or "Unverified".
         """
+        has_filter = text_filter or status_filter != "All"
+
         if isinstance(entry, DirectoryEntry):
+            if has_filter and not self._entry_matches_filter(entry, text_filter, status_filter):
+                return
             # Add a directory node
             dir_node = self.tree.insert(parent_node, 'end', text=entry.name, open=True)
             # Recursively populate its children
             for child_entry in entry.entries:
-                self._populate_tree(dir_node, child_entry)
+                self._populate_tree(dir_node, child_entry, text_filter, status_filter)
         elif isinstance(entry, FileEntry):
+            if has_filter and not self._entry_matches_filter(entry, text_filter, status_filter):
+                return
             # Use the file's id as a hidden value for easy lookup later
             color_tag = "green" if entry.user_verified else "red"
             self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.id,),

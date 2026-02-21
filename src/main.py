@@ -6,8 +6,10 @@ from tkinter import Menu, filedialog, messagebox
 
 from gui_components import gui_theme
 from gui_components.about_dialog import AboutDialog
+from gui_components.edit_label_display_dialog import EditLabelDisplayDialog
 from gui_components.info_pane import InfoPane
 from gui_components.generate_output_dialog import GenerateOutputDialog
+from gui_components.preferences_dialog import PreferencesDialog
 from gui_components.hotkey_dialog import HotkeyDialog
 from gui_components.output_progress_dialog import OutputProgressDialog
 from gui_components.project_browser import ProjectBrowser
@@ -37,6 +39,8 @@ class MainApplication(tk.Tk):
         # Create UserAppConfigService which manages the user configuration
         self.user_app_config_service = UserAppConfigService()
         self.user_app_config = self.user_app_config_service.config  # Access config instance for read-only purposes
+
+        self.INFO_PANE_MAX_WIDTH = self.user_app_config.info_pane_max_width
 
         self.project_service = ProjectService()
 
@@ -86,7 +90,7 @@ class MainApplication(tk.Tk):
         if self.user_app_config.info_width:
             self.paned_window.paneconfig(self.info_pane, width=self.user_app_config.info_width)
 
-    # Maximum width for the info pane (right side) in pixels
+    # Default max width for the info pane; overridden from user config in __init__
     INFO_PANE_MAX_WIDTH = 300
 
     def on_resize(self, event):
@@ -164,6 +168,7 @@ class MainApplication(tk.Tk):
 
         proj_menu = Menu(self.menu_bar, tearoff=0)
         proj_menu.add_command(label='Change Data Root...', command=self.change_data_root)
+        proj_menu.add_command(label='Edit Behavior Labels...', command=self.edit_label_display)
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
@@ -262,8 +267,65 @@ class MainApplication(tk.Tk):
             # Refresh the project browser to reflect any changes
             self.project_browser.load_project()
 
+    def edit_label_display(self):
+        """Open dialog to edit behavior types (label_display)."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        # Count how many labels use each behavior across all files
+        usage_counts = {}
+        self._count_label_usage(self.project_service.get_entries(), usage_counts)
+
+        label_displays = self.project_service.current_project_config.label_display
+        dialog = EditLabelDisplayDialog(self, label_displays, label_usage_counts=usage_counts)
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        if dialog.result_ready and dialog.result_label_displays is not None:
+            self.project_service.current_project_config.label_display = dialog.result_label_displays
+            self.project_service.save_project()
+            # Refresh viewer and info pane to reflect new colors/labels
+            self.viewer.set_project_config(self.project_service.current_project_config)
+            self.viewer.update_plot()
+            self.info_pane.update_legend()
+            self.set_status("Behavior labels updated.")
+
+    def _count_label_usage(self, entries, usage_counts):
+        """Recursively count label behavior usage across all file entries."""
+        if not entries:
+            return
+        for entry in entries:
+            if isinstance(entry, DirectoryEntry):
+                self._count_label_usage(entry.entries, usage_counts)
+            elif isinstance(entry, FileEntry):
+                for label in entry.labels:
+                    behavior = label.behavior if hasattr(label, 'behavior') else label.get('behavior', '')
+                    usage_counts[behavior] = usage_counts.get(behavior, 0) + 1
+
     def edit_preferences(self):
-        pass  # Implement preferences editing logic
+        """Open preferences dialog and apply changes."""
+        config = self.user_app_config
+        dialog = PreferencesDialog(
+            self,
+            comment_save_delay=config.comment_save_delay,
+            info_pane_max_width=config.info_pane_max_width,
+        )
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        if dialog.result_ready:
+            self.user_app_config_service.update_preferences(
+                comment_save_delay=dialog.result_comment_save_delay,
+                info_pane_max_width=dialog.result_info_pane_max_width,
+            )
+            # Apply info pane max width
+            self.INFO_PANE_MAX_WIDTH = dialog.result_info_pane_max_width
+            # Apply comment save delay to info pane
+            self.info_pane._comment_save_delay = dialog.result_comment_save_delay
+            self.set_status("Preferences saved.")
 
     def show_hotkeys(self):
         """Display the hotkey dialog."""

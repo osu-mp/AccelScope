@@ -74,6 +74,14 @@ class UserAppConfigService:
         self.current_project_config = None
         self.get_project_config()
 
+    def update_preferences(self, comment_save_delay=None, info_pane_max_width=None):
+        """Update user-facing preference settings."""
+        if comment_save_delay is not None:
+            self.config.comment_save_delay = comment_save_delay
+        if info_pane_max_width is not None:
+            self.config.info_pane_max_width = info_pane_max_width
+        self.save_to_file()
+
     def set_last_opened_file(self, last_opened_file):
         """
         Reload the last opened CSV

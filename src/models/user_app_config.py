@@ -5,7 +5,8 @@ class UserAppConfig:
 	"""
 	def __init__(self, last_opened_project=None, last_opened_file=None, window_geometry="1200x800",
 	             project_browser_width=200, viewer_width=800, info_width=200, zoom_level=None,
-	             axes_display=None, window_state=None, splitter_positions=None):
+	             axes_display=None, window_state=None, splitter_positions=None,
+	             comment_save_delay=500, info_pane_max_width=300):
 		self.last_opened_project = last_opened_project  # Path to last opened project JSON
 		self.last_opened_file = last_opened_file  # File ID of last opened file
 		self.window_geometry = window_geometry  # e.g., "1200x800" (width x height)
@@ -16,6 +17,8 @@ class UserAppConfig:
 		self.axes_display = axes_display or {'x': True, 'y': True, 'z': True}  # Whether axes (X/Y/Z) are displayed
 		self.window_state = window_state  # Whether the window was maximized or minimized
 		self.splitter_positions = splitter_positions  # Splitter positions (like the divider between viewer & project browser)
+		self.comment_save_delay = comment_save_delay  # Debounce delay for comment auto-save (ms)
+		self.info_pane_max_width = info_pane_max_width  # Max width of the info pane (px)
 
 	def to_dict(self):
 		"""Convert UserAppConfig instance to a dictionary."""
@@ -29,7 +32,9 @@ class UserAppConfig:
 			'zoom_level': self.zoom_level,
 			'axes_display': self.axes_display,
 			'window_state': self.window_state,
-			'splitter_positions': self.splitter_positions
+			'splitter_positions': self.splitter_positions,
+			'comment_save_delay': self.comment_save_delay,
+			'info_pane_max_width': self.info_pane_max_width,
 		}
 
 	@classmethod
@@ -45,5 +50,7 @@ class UserAppConfig:
 			zoom_level=data.get('zoom_level'),
 			axes_display=data.get('axes_display', {'x': True, 'y': True, 'z': True}),
 			window_state=data.get('window_state'),
-			splitter_positions=data.get('splitter_positions')
+			splitter_positions=data.get('splitter_positions'),
+			comment_save_delay=data.get('comment_save_delay', 500),
+			info_pane_max_width=data.get('info_pane_max_width', 300),
 		)
