@@ -28,6 +28,7 @@ class ProjectBrowser(ttk.Frame):
         self.tree = ttk.Treeview(self.tree_frame, show="tree", selectmode="browse")
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.tag_configure("green", foreground="green")
+        self.tree.tag_configure("yellow", foreground="#B8860B")
         self.tree.tag_configure("red", foreground="red")
 
         # Set up the context menu
@@ -51,7 +52,7 @@ class ProjectBrowser(ttk.Frame):
         self.status_filter_var = tk.StringVar(value="All")
         self.status_filter_combo = ttk.Combobox(
             filter_frame, textvariable=self.status_filter_var,
-            values=["All", "Verified", "Unverified"], state="readonly", width=10
+            values=["All", "Verified", "Partial", "Unverified"], state="readonly", width=10
         )
         self.status_filter_combo.pack(side=tk.LEFT, padx=(0, PAD_SM))
         self.status_filter_combo.bind("<<ComboboxSelected>>", lambda e: self._apply_filter())
@@ -87,10 +88,14 @@ class ProjectBrowser(ttk.Frame):
             filename = entry.path.split('/')[-1].split('\\')[-1].lower()
             if text_filter and text_filter not in filename:
                 return False
-            if status_filter == "Verified" and not entry.user_verified:
-                return False
-            if status_filter == "Unverified" and entry.user_verified:
-                return False
+            if status_filter != "All":
+                color = self._get_verification_color(entry.verified_by)
+                if status_filter == "Verified" and color != "green":
+                    return False
+                if status_filter == "Partial" and color != "yellow":
+                    return False
+                if status_filter == "Unverified" and color != "red":
+                    return False
             return True
         elif isinstance(entry, DirectoryEntry):
             return any(self._entry_matches_filter(child, text_filter, status_filter)
@@ -164,23 +169,34 @@ class ProjectBrowser(ttk.Frame):
 
             relative_path = filepath.replace(data_root_dir, "").lstrip('/').lstrip('\\')
 
-            # Create a new FileEntry with default user_verified as False
-            file_entry = FileEntry(path=relative_path, user_verified=False)
+            file_entry = FileEntry(path=relative_path)
             self.project_service.add_file(full_path, file_entry)
 
-            # Add the new file to the tree view with values and update its color based on user_verified status
             self.tree.insert(selected_item, 'end', text=relative_path.split('/')[-1], values=(file_entry.id,))
-            self.update_tree_item_color(file_entry.id, file_entry.user_verified)
+            self.update_tree_item_color(file_entry.id, file_entry.verified_by)
 
             # Open the file in the viewer
             self.parent.open_file(file_entry)
 
-    def update_tree_item_color(self, id, user_verified):
-        """Update the color of the tree item based on the user_verified status."""
+    def _get_verification_color(self, verified_by):
+        """Return 'red', 'yellow', or 'green' based on reviewer verification state."""
+        num_verified = len(verified_by)
+        if num_verified == 0:
+            return "red"
+        reviewers = self.project_service.get_reviewers()
+        num_reviewers = len(reviewers)
+        if num_reviewers == 0:
+            # No reviewers configured — any verification counts as green
+            return "green"
+        if num_verified >= num_reviewers:
+            return "green"
+        return "yellow"
+
+    def update_tree_item_color(self, id, verified_by):
+        """Update the color of the tree item based on the verified_by list."""
         item_id = self.find_tree_item_by_id(id)
         if item_id:
-            color = "green" if user_verified else "red"
-            # Update the tag for the tree item to reflect the new color
+            color = self._get_verification_color(verified_by)
             self.tree.item(item_id, tags=(color,))
 
     def find_tree_item_by_id(self, id):
@@ -240,7 +256,7 @@ class ProjectBrowser(ttk.Frame):
             if has_filter and not self._entry_matches_filter(entry, text_filter, status_filter):
                 return
             # Use the file's id as a hidden value for easy lookup later
-            color_tag = "green" if entry.user_verified else "red"
+            color_tag = self._get_verification_color(entry.verified_by)
             self.tree.insert(parent_node, 'end', text=entry.path.split('/')[-1], values=(entry.id,),
                              tags=(color_tag,))
 

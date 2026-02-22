@@ -106,7 +106,7 @@ class TestBEBEOutputStructure(unittest.TestCase):
         csv_full = os.path.join(self.data_dir, self.csv_rel_path)
         create_synthetic_csv(csv_full, start_hour=5, start_min=50, num_rows=960)
 
-        self.file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=[], user_verified=True)
+        self.file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=[], verified_by=["testuser"])
 
     def tearDown(self):
         shutil.rmtree(self.data_dir, ignore_errors=True)
@@ -173,7 +173,7 @@ class TestBEBEOutputCSVFormat(unittest.TestCase):
             Label("2018-06-08T05:58:10.000000", "2018-06-08T05:58:20.000000", "Stalk"),
             Label("2018-06-08T05:58:25.000000", "2018-06-08T05:58:35.000000", "Kill Phase 1"),
         ]
-        self.file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=self.labels, user_verified=True)
+        self.file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=self.labels, verified_by=["testuser"])
 
     def tearDown(self):
         shutil.rmtree(self.data_dir, ignore_errors=True)

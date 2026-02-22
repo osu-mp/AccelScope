@@ -490,3 +490,13 @@ class ProjectService:
     def get_input_settings(self) -> InputSettings:
         """Return the input settings from the project configuration."""
         return self.project_config.input_settings if self.project_config else None
+
+    def get_current_reviewer(self):
+        """Return the current OS username as the reviewer name."""
+        return getpass.getuser()
+
+    def get_reviewers(self):
+        """Return the reviewers dict from the project config, or empty dict."""
+        if self.current_project_config:
+            return self.current_project_config.reviewers or {}
+        return {}

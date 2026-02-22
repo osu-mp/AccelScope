@@ -1,7 +1,7 @@
 # TODO — Future Features
 
 - Project-wide labeling progress dashboard / summary statistics
-- Inter-annotator agreement / review workflow
+- ~~Inter-annotator agreement / review workflow~~ (multi-reviewer verification added)
 - Multi-day file concatenation in viewer
 
 ## Verify: Datetime & Config Generalization
@@ -45,3 +45,12 @@
 - [ ] Click No on conflict dialog → verify that file is skipped, others still import
 - [ ] Import CSV referencing a non-existent file_id → verify it reports skipped files in summary
 - [ ] Round-trip: export → import into same project → verify labels match exactly
+
+## Verify: Multi-Reviewer Verification
+
+- [ ] Load yellowstone_cougars.json — verify `user_verified: true` files show as verified by "default", tree colors correct
+- [ ] Open a file → info pane shows reviewer checkboxes with aliases → only current user's is clickable
+- [ ] Toggle verification → tree item changes color → reopen file → checkbox state persisted
+- [ ] Filter by Verified/Partial/Unverified → correct files shown
+- [ ] New project with no reviewers configured → single "Verified" checkbox shown, green on check
+- [ ] Two reviewers configured, one verifies → tree shows yellow (partial), both verify → green

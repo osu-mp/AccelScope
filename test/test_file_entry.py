@@ -11,6 +11,7 @@ class TestFileEntry(unittest.TestCase):
         self.assertEqual(file_entry.path, "data/F202_2018-05-20.csv")
         self.assertEqual(file_entry.id, "123")
         self.assertEqual(file_entry.labels, [])
+        self.assertEqual(file_entry.verified_by, [])
 
     def test_file_entry_with_labels(self):
         """Test creating a FileEntry with labels."""
@@ -32,7 +33,7 @@ class TestFileEntry(unittest.TestCase):
             "id": "123",
             "labels": [],
             "comment": "",
-            "user_verified": False,
+            "verified_by": [],
         }
         self.assertEqual(file_dict, expected)
 
@@ -47,6 +48,74 @@ class TestFileEntry(unittest.TestCase):
         self.assertEqual(file_entry.path, "data/F202_2018-05-20.csv")
         self.assertEqual(file_entry.id, "123")
         self.assertEqual(file_entry.labels, [])
+        self.assertEqual(file_entry.verified_by, [])
+
+    def test_file_entry_from_dict_with_verified_by(self):
+        """Test creating FileEntry from a dict with verified_by list."""
+        data = {
+            "path": "data/test.csv",
+            "id": "456",
+            "labels": [],
+            "verified_by": ["mpace", "sarah"]
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.verified_by, ["mpace", "sarah"])
+
+    def test_migration_user_verified_true(self):
+        """Test migration from old user_verified=true to verified_by=['default']."""
+        data = {
+            "path": "data/test.csv",
+            "id": "789",
+            "labels": [],
+            "user_verified": True
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.verified_by, ["default"])
+
+    def test_migration_user_verified_false(self):
+        """Test migration from old user_verified=false to verified_by=[]."""
+        data = {
+            "path": "data/test.csv",
+            "id": "789",
+            "labels": [],
+            "user_verified": False
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.verified_by, [])
+
+    def test_migration_user_verified_missing(self):
+        """Test migration when user_verified key is missing entirely."""
+        data = {
+            "path": "data/test.csv",
+            "id": "789",
+            "labels": []
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.verified_by, [])
+
+    def test_is_verified_by(self):
+        """Test is_verified_by helper."""
+        file_entry = FileEntry(path="test.csv", id="1", verified_by=["mpace"])
+        self.assertTrue(file_entry.is_verified_by("mpace"))
+        self.assertFalse(file_entry.is_verified_by("sarah"))
+
+    def test_set_verified_by_add(self):
+        """Test adding a reviewer via set_verified_by."""
+        file_entry = FileEntry(path="test.csv", id="1")
+        file_entry.set_verified_by("mpace", True)
+        self.assertEqual(file_entry.verified_by, ["mpace"])
+        # Adding again should not duplicate
+        file_entry.set_verified_by("mpace", True)
+        self.assertEqual(file_entry.verified_by, ["mpace"])
+
+    def test_set_verified_by_remove(self):
+        """Test removing a reviewer via set_verified_by."""
+        file_entry = FileEntry(path="test.csv", id="1", verified_by=["mpace", "sarah"])
+        file_entry.set_verified_by("mpace", False)
+        self.assertEqual(file_entry.verified_by, ["sarah"])
+        # Removing non-existent should be safe
+        file_entry.set_verified_by("mpace", False)
+        self.assertEqual(file_entry.verified_by, ["sarah"])
 
 
 if __name__ == "__main__":

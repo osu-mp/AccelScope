@@ -32,7 +32,7 @@ class TestDirectoryEntry(unittest.TestCase):
                     "id": "123",
                     "labels": [],
                     "comment": "",
-                    "user_verified": False,
+                    "verified_by": [],
                 }
             ]
         }

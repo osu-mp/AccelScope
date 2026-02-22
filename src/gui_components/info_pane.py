@@ -36,11 +36,12 @@ class InfoPane(ttk.Frame):
         self.create_cursor_report()
         self.add_separator()
 
-        # User Verified Checkbox
-        self.user_verified_var = tk.BooleanVar()
-        self.user_verified_checkbox = ttk.Checkbutton(self, text="User Verified", variable=self.user_verified_var,
-                                                      command=self.on_user_verified_change)
-        self.user_verified_checkbox.pack(fill=tk.X, pady=PAD_MD)
+        # Verification section
+        self.verification_frame = ttk.LabelFrame(self, text="Verification")
+        self.verification_frame.pack(fill=tk.X, pady=PAD_MD)
+        self.reviewer_vars = {}
+        self.reviewer_checkboxes = {}
+        self._build_reviewer_checkboxes()
         self.add_separator()
 
         # Comments Section
@@ -202,6 +203,7 @@ class InfoPane(ttk.Frame):
         """
         self.project_service = project_service
         self.reset_ui()
+        self._build_reviewer_checkboxes()
         self.create_data_display_checkboxes()  # Regenerate dynamic checkboxes based on new project config
         self.create_cursor_report()  # Regenerate the cursor report for new project data
         self.create_legend()  # Refresh the legend based on new project data
@@ -210,24 +212,55 @@ class InfoPane(ttk.Frame):
         """Update the current FileEntry and update the UI elements."""
         self.current_file_entry = file_entry
         if file_entry:
-            self.user_verified_var.set(file_entry.user_verified)
-            if file_entry.user_verified:
-                self.user_verified_checkbox.state(['selected'])
-            else:
-                self.user_verified_checkbox.state(['!selected'])
+            for username, var in self.reviewer_vars.items():
+                var.set(file_entry.is_verified_by(username))
 
             if file_entry.comment:
                 self.comments_text.delete("1.0", tk.END)
                 self.comments_text.insert(tk.END, file_entry.comment)
 
-    def on_user_verified_change(self):
-        """Handle changes to the user_verified checkbox."""
+    def _build_reviewer_checkboxes(self):
+        """Build one checkbox per reviewer (or a single generic one if no reviewers configured)."""
+        for widget in self.verification_frame.winfo_children():
+            widget.destroy()
+        self.reviewer_vars.clear()
+        self.reviewer_checkboxes.clear()
+
+        reviewers = self.project_service.get_reviewers()
+        current_user = self.project_service.get_current_reviewer()
+
+        if not reviewers:
+            # No reviewers configured — show a single "Verified" checkbox for current user
+            var = tk.BooleanVar()
+            self.reviewer_vars[current_user] = var
+            cb = ttk.Checkbutton(self.verification_frame, text="Verified", variable=var,
+                                 command=self._on_reviewer_verified_change)
+            cb.pack(anchor=tk.W, padx=PAD_SM, pady=PAD_SM)
+            self.reviewer_checkboxes[current_user] = cb
+        else:
+            for username, info in reviewers.items():
+                alias = info.get("alias", username[:2].upper())
+                var = tk.BooleanVar()
+                self.reviewer_vars[username] = var
+                cb = ttk.Checkbutton(self.verification_frame, text=alias, variable=var,
+                                     command=self._on_reviewer_verified_change)
+                cb.pack(anchor=tk.W, padx=PAD_SM, pady=PAD_SM)
+                # Only the current user's checkbox is enabled
+                if username != current_user:
+                    cb.configure(state="disabled")
+                self.reviewer_checkboxes[username] = cb
+
+    def _on_reviewer_verified_change(self):
+        """Handle changes to any reviewer verification checkbox."""
         if self.current_file_entry:
-            self.current_file_entry.user_verified = self.user_verified_var.get()
-            self.parent.set_status(f"User verified status changed to: {self.current_file_entry.user_verified}")
-            self.project_service.save_project()
-            self.parent.project_browser.update_tree_item_color(self.current_file_entry.id,
-                                                               self.current_file_entry.user_verified)
+            current_user = self.project_service.get_current_reviewer()
+            if current_user in self.reviewer_vars:
+                verified = self.reviewer_vars[current_user].get()
+                self.current_file_entry.set_verified_by(current_user, verified)
+                self.parent.set_status(f"Verification by {current_user}: {verified}")
+                self.project_service.save_project()
+                self.parent.project_browser.update_tree_item_color(
+                    self.current_file_entry.id, self.current_file_entry.verified_by)
 
     @staticmethod
     def calculate_duration(start_time, end_time):
