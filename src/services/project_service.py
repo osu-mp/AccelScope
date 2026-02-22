@@ -5,7 +5,6 @@ import math
 import os
 import re
 import uuid
-from models.data_display import DataDisplay
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 from models.input_settings import InputSettings
@@ -19,7 +18,6 @@ class ProjectService:
     def __init__(self, project_path=None):
         self.current_project_path = project_path
         self.current_project_config = None
-        self.input_freq = 16        # TODO move to project config
         if project_path:
             self.load_project(project_path)
 
@@ -255,32 +253,6 @@ class ProjectService:
         if os.path.exists(location):
             raise FileExistsError(f"The file {location} already exists.")
 
-        # Create default data_display and label_display configurations as instances of their respective classes
-        # TODO: move this elsewhere
-        default_data_display = [
-            DataDisplay(
-                input_name="Acc X [g]",
-                display_name="X-axis",
-                color="red",
-                alpha=0.6,
-                output_name="Acc X [g]"
-            ),
-            DataDisplay(
-                input_name="Acc Y [g]",
-                display_name="Y-axis",
-                color="black",
-                alpha=0.5,
-                output_name="Acc Y [g]"
-            ),
-            DataDisplay(
-                input_name="Acc Z [g]",
-                display_name="Z-axis",
-                color="blue",
-                alpha=0.7,
-                output_name="Acc Z [g]"
-            )
-        ]
-
         default_label_display = [
             LabelDisplay(
                 display_name="Stalk",
@@ -314,12 +286,10 @@ class ProjectService:
             )
         ]
 
-        # Create a new ProjectConfig instance with default data_display and label_display
         project_config = ProjectConfig(
             proj_name=proj_name,
             data_root_directory=data_root,
             entries=[],
-            data_display=default_data_display,
             label_display=default_label_display
         )
 
@@ -441,7 +411,11 @@ class ProjectService:
         E.g. for 16 Hz data, this is 1000 / 16 ~ 63 ms
         :return:
         """
-        return math.ceil(1000 / self.input_freq)
+        if self.current_project_config and self.current_project_config.input_settings:
+            freq = self.current_project_config.input_settings.input_frequency
+        else:
+            freq = 16
+        return math.ceil(1000 / freq)
 
     def delete_file_by_id(self, id):
         """Delete a file entry from the project configuration by file ID."""
