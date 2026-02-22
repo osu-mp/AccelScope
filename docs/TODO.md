@@ -1,6 +1,6 @@
 # TODO — Future Features
 
-- Project-wide labeling progress dashboard / summary statistics
+- ~~Project-wide labeling progress dashboard / summary statistics~~ (labeling dashboard added)
 - ~~Inter-annotator agreement / review workflow~~ (multi-reviewer verification added)
 - Multi-day file concatenation in viewer
 
@@ -54,3 +54,13 @@
 - [ ] Filter by Verified/Partial/Unverified → correct files shown
 - [ ] New project with no reviewers configured → single "Verified" checkbox shown, green on check
 - [ ] Two reviewers configured, one verifies → tree shows yellow (partial), both verify → green
+
+## Verify: Labeling Dashboard
+
+- [ ] Open project → Project > Labeling Dashboard → dialog opens with correct stats
+- [ ] Verify overview counts match manual count of files/labels in project browser
+- [ ] Verify per-behavior table shows all configured behaviors with correct label counts and durations
+- [ ] Verify per-reviewer table shows each reviewer with correct verified file counts
+- [ ] Verify dialog works with no reviewers configured (reviewer section hidden)
+- [ ] Verify dialog works with a project that has zero labels (all zeros, no crash)
+- [ ] Close button dismisses the dialog

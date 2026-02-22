@@ -10,6 +10,7 @@ from gui_components.about_dialog import AboutDialog
 from gui_components.edit_input_settings_dialog import EditInputSettingsDialog
 from gui_components.edit_label_display_dialog import EditLabelDisplayDialog
 from gui_components.info_pane import InfoPane
+from gui_components.labeling_dashboard_dialog import LabelingDashboardDialog
 from gui_components.generate_output_dialog import GenerateOutputDialog
 from gui_components.preferences_dialog import PreferencesDialog
 from gui_components.hotkey_dialog import HotkeyDialog
@@ -176,6 +177,8 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Export Labels to CSV...', command=self.export_labels_csv)
         proj_menu.add_command(label='Import Labels from CSV...', command=self.import_labels_csv)
         proj_menu.add_separator()
+        proj_menu.add_command(label='Labeling Dashboard', command=self.show_labeling_dashboard)
+        proj_menu.add_separator()
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
@@ -326,6 +329,21 @@ class MainApplication(tk.Tk):
             self.viewer.set_project_config(config)
             self.viewer.update_plot()
             self.set_status("Input settings updated.")
+
+    def show_labeling_dashboard(self):
+        """Open the labeling progress dashboard dialog."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        config = self.project_service.current_project_config
+        file_entries = []
+        self._collect_file_entries(self.project_service.get_entries(), file_entries)
+
+        dialog = LabelingDashboardDialog(self, file_entries, config.label_display, config.reviewers)
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
 
     def _collect_file_entries(self, entries, result):
         """Recursively collect all FileEntry objects from the project tree."""
