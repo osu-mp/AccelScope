@@ -105,22 +105,20 @@ class TestProjectService(unittest.TestCase):
         self.assertEqual(title, expected_title)
 
     def test_get_step_time_ms(self):
-        # Test for 16 Hz input frequency
-        project_service = ProjectService()
-        project_service.input_freq = 16
-        self.assertEqual(project_service.get_step_time_ms(), 63)
+        # Test for 16 Hz input frequency (default from setUp)
+        self.assertEqual(self.project_service.get_step_time_ms(), 63)
 
         # Test for 10 Hz input frequency (should return 100)
-        project_service.input_freq = 10
-        self.assertEqual(project_service.get_step_time_ms(), 100)
+        self.project_config.input_settings.input_frequency = 10
+        self.assertEqual(self.project_service.get_step_time_ms(), 100)
 
         # Test for 1 Hz input frequency (should return 1000)
-        project_service.input_freq = 1
-        self.assertEqual(project_service.get_step_time_ms(), 1000)
+        self.project_config.input_settings.input_frequency = 1
+        self.assertEqual(self.project_service.get_step_time_ms(), 1000)
 
         # Test for 25 Hz input frequency (should return 40)
-        project_service.input_freq = 25
-        self.assertEqual(project_service.get_step_time_ms(), 40)
+        self.project_config.input_settings.input_frequency = 25
+        self.assertEqual(self.project_service.get_step_time_ms(), 40)
 
     def test_get_reviewers(self):
         """Test that get_reviewers builds dict from users list."""
