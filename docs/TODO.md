@@ -2,6 +2,7 @@
 
 - ~~Project-wide labeling progress dashboard / summary statistics~~ (labeling dashboard added)
 - ~~Inter-annotator agreement / review workflow~~ (multi-reviewer verification added)
+- ~~Replace data_root_directory + reviewers with explicit users list~~ (user config refactor done)
 - Multi-day file concatenation in viewer
 
 ## Verify: Datetime & Config Generalization
@@ -64,3 +65,15 @@
 - [ ] Verify dialog works with no reviewers configured (reviewer section hidden)
 - [ ] Verify dialog works with a project that has zero labels (all zeros, no crash)
 - [ ] Close button dismisses the dialog
+
+## Verify: User Config Refactor (data_root_directory -> users list)
+
+- [ ] Run migration script on test configs — verify JSON has `users` list, no `data_root_directory` or `reviewers`
+- [ ] Run all tests — verify passing
+- [ ] Open migrated project — verify files load, data root resolves for current user
+- [ ] Verify reviewer checkboxes in info pane show correct aliases from users list
+- [ ] Verify project browser verification colors work (green/yellow/unverified)
+- [ ] Verify labeling dashboard reviewer stats match users list
+- [ ] Create new project — verify `users` list created with single entry for current OS user
+- [ ] Change data root via Project menu — verify user's `data_root` updated in config JSON
+- [ ] Open project as unknown user — verify prompt for data root appears, new user added to list

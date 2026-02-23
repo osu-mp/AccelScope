@@ -1,6 +1,5 @@
 {
     "proj_name": "Cougars",
-    "data_root_directory": "D:/OSU/AccelScopeDemo/",
     "entries": [
         {
             "name": "F202",
@@ -108,5 +107,6 @@
             "alpha": 0.2,
             "output_value": "WALK"
         }
-    ]
+    ],
+    "users": []
 }

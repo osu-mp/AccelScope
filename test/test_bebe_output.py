@@ -73,7 +73,8 @@ def create_synthetic_csv(file_path, start_hour=5, start_min=50, num_rows=960, fr
 
 
 def build_test_project(data_root, file_entries, label_display=None):
-    """Build a ProjectConfig with the given file entries under a single directory."""
+    """Build a ProjectConfig with the given file entries under a single directory.
+    Returns (config, data_root) tuple."""
     if label_display is None:
         label_display = [
             LabelDisplay("Stalk", "green", 0.2, "STALK"),
@@ -83,15 +84,16 @@ def build_test_project(data_root, file_entries, label_display=None):
             LabelDisplay("Walk", "red", 0.2, "WALK"),
         ]
 
+    from models.user_config import UserConfig
     directory = DirectoryEntry("TestAnimals", file_entries)
     config = ProjectConfig(
         proj_name="TestProject",
-        data_root_directory={"active": data_root, "default": data_root},
+        users=[UserConfig(username="testuser", data_root=data_root)],
         entries=[directory],
         label_display=label_display,
         input_settings=InputSettings(input_type=InputType.VECTRONIC_MOTION, input_frequency=16),
     )
-    return config
+    return config, data_root
 
 
 class TestBEBEOutputStructure(unittest.TestCase):
@@ -114,7 +116,7 @@ class TestBEBEOutputStructure(unittest.TestCase):
 
     def test_single_method_creates_correct_structure(self):
         """One downsample method should produce method_dir/clip_data/ and method_dir/dataset_metadata.yaml"""
-        config = build_test_project(self.data_dir, [self.file_entry])
+        config, data_root = build_test_project(self.data_dir, [self.file_entry])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_period=OutputPeriod.ENTIRE_INPUT,
@@ -122,7 +124,7 @@ class TestBEBEOutputStructure(unittest.TestCase):
         )
 
         bebe = BEBEOutput()
-        output_files = bebe.generate_output(config, self.output_dir, settings)
+        output_files = bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         # Should have created average/clip_data/ dir
         avg_dir = os.path.join(self.output_dir, "average")
@@ -137,7 +139,7 @@ class TestBEBEOutputStructure(unittest.TestCase):
 
     def test_multiple_methods_create_separate_subfolders(self):
         """Selecting multiple methods should create one subfolder per method."""
-        config = build_test_project(self.data_dir, [self.file_entry])
+        config, data_root = build_test_project(self.data_dir, [self.file_entry])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE, DownsampleMethod.NTH_VALUE, DownsampleMethod.MIN, DownsampleMethod.MAX],
             output_period=OutputPeriod.ENTIRE_INPUT,
@@ -145,7 +147,7 @@ class TestBEBEOutputStructure(unittest.TestCase):
         )
 
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         for method_name in ["average", "nth_value", "min", "max"]:
             method_dir = os.path.join(self.output_dir, method_name)
@@ -181,14 +183,14 @@ class TestBEBEOutputCSVFormat(unittest.TestCase):
 
     def test_csv_is_headerless_with_5_columns(self):
         """Output CSV should have no header and exactly 5 columns per row."""
-        config = build_test_project(self.data_dir, [self.file_entry])
+        config, data_root = build_test_project(self.data_dir, [self.file_entry])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
 
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         clip_dir = os.path.join(self.output_dir, "average", "clip_data")
         csv_files = os.listdir(clip_dir)
@@ -216,14 +218,14 @@ class TestBEBEOutputCSVFormat(unittest.TestCase):
 
     def test_label_integers_match_label_display_order(self):
         """Label 0=unknown, 1=STALK, 2=KILL, 3=KILL_PHASE_2, 4=FEED, 5=WALK."""
-        config = build_test_project(self.data_dir, [self.file_entry])
+        config, data_root = build_test_project(self.data_dir, [self.file_entry])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.NTH_VALUE],
             output_frequency=16,
         )
 
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         clip_dir = os.path.join(self.output_dir, "nth_value", "clip_data")
         csv_path = os.path.join(clip_dir, os.listdir(clip_dir)[0])
@@ -244,14 +246,14 @@ class TestBEBEOutputCSVFormat(unittest.TestCase):
 
     def test_individual_id_is_constant_per_clip(self):
         """All rows in a clip should have the same individual_id."""
-        config = build_test_project(self.data_dir, [self.file_entry])
+        config, data_root = build_test_project(self.data_dir, [self.file_entry])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
 
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         clip_dir = os.path.join(self.output_dir, "average", "clip_data")
         csv_path = os.path.join(clip_dir, os.listdir(clip_dir)[0])
@@ -282,13 +284,13 @@ class TestBEBEDownsampling(unittest.TestCase):
         shutil.rmtree(self.output_dir, ignore_errors=True)
 
     def _count_output_rows(self, method, output_freq):
-        config = build_test_project(self.data_dir, [self.file_entry])
+        config, data_root = build_test_project(self.data_dir, [self.file_entry])
         settings = OutputSettings(
             downsample_methods=[method],
             output_frequency=output_freq,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         clip_dir = os.path.join(self.output_dir, method.value, "clip_data")
         csv_path = os.path.join(clip_dir, os.listdir(clip_dir)[0])
@@ -343,13 +345,13 @@ class TestBEBEMetadata(unittest.TestCase):
 
     def test_metadata_fields_present(self):
         """metadata yaml should have all required top-level fields."""
-        config = build_test_project(self.data_dir, [self.fe1, self.fe2])
+        config, data_root = build_test_project(self.data_dir, [self.fe1, self.fe2])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         yaml_path = os.path.join(self.output_dir, "average", "dataset_metadata.yaml")
         with open(yaml_path, "r") as f:
@@ -364,13 +366,13 @@ class TestBEBEMetadata(unittest.TestCase):
 
     def test_metadata_sr_matches_output_freq(self):
         """sr field should match the output frequency setting."""
-        config = build_test_project(self.data_dir, [self.fe1])
+        config, data_root = build_test_project(self.data_dir, [self.fe1])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=8,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         yaml_path = os.path.join(self.output_dir, "average", "dataset_metadata.yaml")
         with open(yaml_path, "r") as f:
@@ -380,13 +382,13 @@ class TestBEBEMetadata(unittest.TestCase):
 
     def test_metadata_label_names_order(self):
         """label_names should be [unknown, STALK, KILL, KILL_PHASE_2, FEED, WALK]."""
-        config = build_test_project(self.data_dir, [self.fe1])
+        config, data_root = build_test_project(self.data_dir, [self.fe1])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         yaml_path = os.path.join(self.output_dir, "average", "dataset_metadata.yaml")
         with open(yaml_path, "r") as f:
@@ -397,13 +399,13 @@ class TestBEBEMetadata(unittest.TestCase):
 
     def test_metadata_two_individuals(self):
         """Two files from different individuals should produce 2 individual_ids."""
-        config = build_test_project(self.data_dir, [self.fe1, self.fe2])
+        config, data_root = build_test_project(self.data_dir, [self.fe1, self.fe2])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         yaml_path = os.path.join(self.output_dir, "average", "dataset_metadata.yaml")
         with open(yaml_path, "r") as f:
@@ -415,13 +417,13 @@ class TestBEBEMetadata(unittest.TestCase):
 
     def test_metadata_clip_column_names(self):
         """clip_column_names should be the standard BEBE columns."""
-        config = build_test_project(self.data_dir, [self.fe1])
+        config, data_root = build_test_project(self.data_dir, [self.fe1])
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         yaml_path = os.path.join(self.output_dir, "average", "dataset_metadata.yaml")
         with open(yaml_path, "r") as f:
@@ -438,13 +440,13 @@ class TestBEBEMetadata(unittest.TestCase):
             create_synthetic_csv(os.path.join(self.data_dir, rel_path), num_rows=160)
             entries.append(FileEntry(rel_path, id=f"file_{i:03d}", labels=[]))
 
-        config = build_test_project(self.data_dir, entries)
+        config, data_root = build_test_project(self.data_dir, entries)
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings)
+        bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         yaml_path = os.path.join(self.output_dir, "average", "dataset_metadata.yaml")
         with open(yaml_path, "r") as f:
@@ -476,7 +478,7 @@ class TestBEBELabeledWithBuffer(unittest.TestCase):
         labels = [Label("2018-06-08T05:55:00.000000", "2018-06-08T05:55:10.000000", "Stalk")]
         file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=labels)
 
-        config = build_test_project(self.data_dir, [file_entry])
+        config, data_root = build_test_project(self.data_dir, [file_entry])
 
         # Generate with entire_input
         settings_entire = OutputSettings(
@@ -485,7 +487,7 @@ class TestBEBELabeledWithBuffer(unittest.TestCase):
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(config, self.output_dir, settings_entire)
+        bebe.generate_output(config, self.output_dir, settings_entire, data_root=data_root)
 
         clip_dir = os.path.join(self.output_dir, "nth_value", "clip_data")
         csv_path = os.path.join(clip_dir, os.listdir(clip_dir)[0])
@@ -504,7 +506,7 @@ class TestBEBELabeledWithBuffer(unittest.TestCase):
             buffer_minutes=5,
             round_to_minutes=1,
         )
-        bebe.generate_output(config, self.output_dir, settings_buffer)
+        bebe.generate_output(config, self.output_dir, settings_buffer, data_root=data_root)
 
         clip_dir = os.path.join(self.output_dir, "nth_value", "clip_data")
         csv_path = os.path.join(clip_dir, os.listdir(clip_dir)[0])
@@ -518,7 +520,7 @@ class TestBEBELabeledWithBuffer(unittest.TestCase):
     def test_no_labels_with_buffer_produces_empty(self):
         """File with no labels + labeled_with_buffer should produce no output clip."""
         file_entry = FileEntry(self.csv_rel_path, id="abc12345", labels=[])
-        config = build_test_project(self.data_dir, [file_entry])
+        config, data_root = build_test_project(self.data_dir, [file_entry])
 
         settings = OutputSettings(
             downsample_methods=[DownsampleMethod.AVERAGE],
@@ -527,7 +529,7 @@ class TestBEBELabeledWithBuffer(unittest.TestCase):
             buffer_minutes=5,
         )
         bebe = BEBEOutput()
-        output_files = bebe.generate_output(config, self.output_dir, settings)
+        output_files = bebe.generate_output(config, self.output_dir, settings, data_root=data_root)
 
         # No clips should be produced for a file with no labels
         clip_dir = os.path.join(self.output_dir, "average", "clip_data")
@@ -545,17 +547,18 @@ class TestBEBEWithRealProjectConfig(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        import getpass
         config_path = os.path.join(os.path.dirname(__file__), "configs", "yellowstone_cougars.json")
         cls.config = ProjectConfig.from_file(config_path)
 
-        # Check if data root is available
-        data_root = cls.config.data_root_directory.get("active")
-        if not data_root:
-            data_root = cls.config.data_root_directory.get("default")
+        # Find data root for current user from users list
+        username = getpass.getuser()
+        cls.data_root = None
+        user_config = cls.config.get_user_by_username(username)
+        if user_config and user_config.data_root:
+            cls.data_root = user_config.data_root
 
-        cls.data_available = data_root is not None and os.path.isdir(str(data_root))
-        if cls.data_available:
-            cls.config.data_root_directory["active"] = data_root
+        cls.data_available = cls.data_root is not None and os.path.isdir(str(cls.data_root))
 
     def setUp(self):
         if not self.data_available:
@@ -574,7 +577,7 @@ class TestBEBEWithRealProjectConfig(unittest.TestCase):
             output_frequency=16,
         )
         bebe = BEBEOutput()
-        output_files = bebe.generate_output(self.config, self.output_dir, settings)
+        output_files = bebe.generate_output(self.config, self.output_dir, settings, data_root=self.data_root)
 
         # Should produce at least some output files
         self.assertGreater(len(output_files), 0, "Should generate at least one output file")
@@ -625,7 +628,7 @@ class TestBEBEWithRealProjectConfig(unittest.TestCase):
             output_frequency=1,
         )
         bebe = BEBEOutput()
-        bebe.generate_output(self.config, self.output_dir, settings)
+        bebe.generate_output(self.config, self.output_dir, settings, data_root=self.data_root)
 
         for method_name in ["average", "nth_value"]:
             clip_dir = os.path.join(self.output_dir, method_name, "clip_data")

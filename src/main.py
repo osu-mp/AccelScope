@@ -340,7 +340,7 @@ class MainApplication(tk.Tk):
         file_entries = []
         self._collect_file_entries(self.project_service.get_entries(), file_entries)
 
-        dialog = LabelingDashboardDialog(self, file_entries, config.label_display, config.reviewers)
+        dialog = LabelingDashboardDialog(self, file_entries, config.label_display, self.project_service.get_reviewers())
         dialog.transient(self)
         dialog.grab_set()
         self.wait_window(dialog)
@@ -674,6 +674,7 @@ class MainApplication(tk.Tk):
                 self.project_service.current_project_config,
                 output_directory,
                 output_settings,
+                data_root=self.project_service.get_user_data_path(),
                 progress_callback=progress_callback
             )
 

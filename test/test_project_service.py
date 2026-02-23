@@ -6,6 +6,7 @@ from services.project_service import ProjectService
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 from models.project_config import ProjectConfig
+from models.user_config import UserConfig
 from models.output_settings import OutputSettings, OutputType, DownsampleMethod, OutputPeriod
 from unittest.mock import patch
 
@@ -30,9 +31,7 @@ class TestProjectService(unittest.TestCase):
         # Initialize ProjectConfig with temp directory as root and mock output settings
         self.project_config = ProjectConfig(
             proj_name="TestProject",
-            data_root_directory={
-                "default": self.test_dir
-            },
+            users=[UserConfig(username="default_user", data_root=self.test_dir)],
             entries=[DirectoryEntry("F202_27905_010518_072219")],
             label_display=[],
             output_settings=self.output_settings
@@ -41,25 +40,25 @@ class TestProjectService(unittest.TestCase):
         # Set the project config in the service and resolve the data root directory
         self.project_service.current_project_config = self.project_config
         self.project_service.current_project_path = self.project_path
-        self.project_service.resolve_data_root_directory()  # Ensure the root directory is resolved
+
+        # Manually set _active_data_root since getpass.getuser() won't match "default_user"
+        self.project_service._active_data_root = self.test_dir
 
     def tearDown(self):
         # Remove the temporary directory after each test
         shutil.rmtree(self.test_dir)
 
-    def test_load_project(self):
-        # Write project configuration to temporary project path
-        with open(self.project_path, 'w') as f:
-            f.write(f'{{"proj_name": "TestProject",'
-                    f' "data_root_directory": {{"default": "{self.test_dir.replace("\\", "/")}" }},'
-                    f' "entries": [],'
-                    f' "output_settings": {{"output_type": "bebe", "downsample_method": "average", "period": "entire_input", "frequency": 4}},'
-                    f' "input_settings": {{"input_type": "VectronicMotion", "input_frequency": 16}}}}')
+    def test_resolve_data_root_directory(self):
+        """Test that resolve_data_root_directory finds the correct user's data root."""
+        with patch("getpass.getuser", return_value="default_user"):
+            self.project_service.resolve_data_root_directory()
+            self.assertEqual(self.project_service._active_data_root, self.test_dir)
 
-        # Load the project and check that the name matches
-        with patch("os.path.exists", return_value=True):
-            self.project_service.load_project(self.project_path)
-            self.assertEqual(self.project_service.current_project_config.proj_name, "TestProject")
+    def test_resolve_data_root_unknown_user(self):
+        """Test that unknown user gets None active data root."""
+        with patch("getpass.getuser", return_value="unknown_user"):
+            self.project_service.resolve_data_root_directory()
+            self.assertIsNone(self.project_service._active_data_root)
 
     def test_save_project(self):
         # Save the current project config and ensure the file is created
@@ -122,6 +121,36 @@ class TestProjectService(unittest.TestCase):
         # Test for 25 Hz input frequency (should return 40)
         project_service.input_freq = 25
         self.assertEqual(project_service.get_step_time_ms(), 40)
+
+    def test_get_reviewers(self):
+        """Test that get_reviewers builds dict from users list."""
+        reviewers = self.project_service.get_reviewers()
+        self.assertIn("default_user", reviewers)
+        self.assertEqual(reviewers["default_user"]["alias"], "DE")
+
+    def test_update_user_data_root_existing_user(self):
+        """Test updating data root for an existing user."""
+        new_path = tempfile.mkdtemp()
+        try:
+            with patch("getpass.getuser", return_value="default_user"):
+                self.project_service.update_user_data_root(new_path)
+                user = self.project_config.get_user_by_username("default_user")
+                self.assertEqual(user.data_root, new_path)
+                self.assertEqual(self.project_service._active_data_root, new_path)
+        finally:
+            shutil.rmtree(new_path)
+
+    def test_update_user_data_root_new_user(self):
+        """Test updating data root creates a new user entry if not found."""
+        new_path = tempfile.mkdtemp()
+        try:
+            with patch("getpass.getuser", return_value="new_user"):
+                self.project_service.update_user_data_root(new_path)
+                user = self.project_config.get_user_by_username("new_user")
+                self.assertIsNotNone(user)
+                self.assertEqual(user.data_root, new_path)
+        finally:
+            shutil.rmtree(new_path)
 
 if __name__ == '__main__':
     unittest.main()

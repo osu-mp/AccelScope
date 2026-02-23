@@ -25,13 +25,14 @@ class BEBEOutput(OutputGeneratorInterface):
 	def __init__(self):
 		pass
 
-	def generate_output(self, project_config: ProjectConfig, output_dir: str, settings: OutputSettings, progress_callback=None):
+	def generate_output(self, project_config: ProjectConfig, output_dir: str, settings: OutputSettings, data_root: str, progress_callback=None):
 		"""
 		Generate BEBE output files for all file entries in the project.
 
 		:param project_config: The project configuration.
 		:param output_dir: Root output directory.
 		:param settings: OutputSettings with selected downsample methods, period, etc.
+		:param data_root: Resolved data root directory path.
 		:return: List of generated file paths.
 		"""
 		label_display = project_config.label_display
@@ -46,10 +47,8 @@ class BEBEOutput(OutputGeneratorInterface):
 		output_frequency = settings.output_frequency
 		downsample_ratio = input_frequency // output_frequency if output_frequency > 0 else 1
 
-		# Get the active data root
-		data_root = project_config.data_root_directory.get("active")
 		if not data_root:
-			raise ValueError("No active data root directory set.")
+			raise ValueError("No data root directory provided.")
 
 		# Get individual ID regex from config
 		individual_id_regex = project_config.individual_id_regex

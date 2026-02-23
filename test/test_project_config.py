@@ -10,6 +10,7 @@ from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 from models.label import Label
 from models.project_config import ProjectConfig
+from models.user_config import UserConfig
 from models.output_settings import OutputSettings, DownsampleMethod, OutputPeriod, OutputType
 
 
@@ -23,13 +24,19 @@ class TestProjectConfig(unittest.TestCase):
 		self.file_entry2 = FileEntry("data/F202_2018-06-18.csv", "TODO_456", [self.label1])
 
 		self.directory = DirectoryEntry("F202", [self.file_entry1, self.file_entry2])
-		self.project = ProjectConfig("Cougars", "D:/OSU/AccelScopeDemo/", [self.directory])
+		self.project = ProjectConfig(
+			"Cougars",
+			users=[UserConfig(username="testuser", data_root="D:/OSU/AccelScopeDemo/")],
+			entries=[self.directory],
+		)
 
 	def test_to_dict(self):
 		"""Test converting ProjectConfig to a dictionary."""
 		project_dict = self.project.to_dict()
 		self.assertEqual(project_dict['proj_name'], "Cougars")
 		self.assertEqual(len(project_dict['entries'][0]['entries']), 2)  # 2 FileEntries
+		self.assertEqual(len(project_dict['users']), 1)
+		self.assertEqual(project_dict['users'][0]['username'], "testuser")
 
 	def test_from_dict(self):
 		"""Test creating ProjectConfig from a dictionary."""
@@ -38,6 +45,18 @@ class TestProjectConfig(unittest.TestCase):
 		self.assertEqual(loaded_project.proj_name, "Cougars")
 		self.assertEqual(len(loaded_project.entries), 1)
 		self.assertEqual(len(loaded_project.entries[0].entries), 2)
+		self.assertEqual(len(loaded_project.users), 1)
+		self.assertEqual(loaded_project.users[0].username, "testuser")
+		self.assertEqual(loaded_project.users[0].data_root, "D:/OSU/AccelScopeDemo/")
+
+	def test_get_user_by_username(self):
+		"""Test looking up a user by username."""
+		user = self.project.get_user_by_username("testuser")
+		self.assertIsNotNone(user)
+		self.assertEqual(user.data_root, "D:/OSU/AccelScopeDemo/")
+
+		missing = self.project.get_user_by_username("nobody")
+		self.assertIsNone(missing)
 
 	def test_project_config_serialization(self):
 		output_settings = OutputSettings(
@@ -50,7 +69,7 @@ class TestProjectConfig(unittest.TestCase):
 		)
 		project = ProjectConfig(
 			proj_name="Test Project",
-			data_root_directory="/path/to/data",
+			users=[UserConfig(username="alice", data_root="/path/to/data")],
 			entries=[],
 			label_display=[]
 		)
@@ -78,6 +97,15 @@ class TestProjectConfig(unittest.TestCase):
 		self.assertEqual(project_from_dict.output_settings.output_frequency, 16)
 		self.assertEqual(project_from_dict.output_settings.buffer_minutes, 5)
 		self.assertEqual(project_from_dict.output_settings.round_to_minutes, 1)
+
+	def test_empty_users_list(self):
+		"""Test ProjectConfig with no users."""
+		project = ProjectConfig(proj_name="Empty")
+		self.assertEqual(project.users, [])
+		d = project.to_dict()
+		self.assertEqual(d["users"], [])
+		loaded = ProjectConfig.from_dict(d)
+		self.assertEqual(loaded.users, [])
 
 
 

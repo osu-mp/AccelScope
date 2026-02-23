@@ -10,6 +10,7 @@ from models.file_entry import FileEntry
 from models.input_settings import InputSettings
 from models.label_display import LabelDisplay
 from models.project_config import ProjectConfig
+from models.user_config import UserConfig
 
 
 class ProjectService:
@@ -18,6 +19,7 @@ class ProjectService:
     def __init__(self, project_path=None):
         self.current_project_path = project_path
         self.current_project_config = None
+        self._active_data_root = None
         if project_path:
             self.load_project(project_path)
 
@@ -46,28 +48,19 @@ class ProjectService:
             logging.error("No project config loaded")
             return
 
-        # Get the current OS username
         username = getpass.getuser()
+        user_config = self.current_project_config.get_user_by_username(username)
 
-        # Check if a path is specified for this user, else use the default path
-        data_root = self.current_project_config.data_root_directory.get(username)
-
-        if not data_root:
-            # If user-specific path is not found, fallback to the default
-            data_root = self.current_project_config.data_root_directory.get("default")
-
-        if data_root and os.path.exists(data_root):
-            logging.info(f"Using data root directory for user '{username}': {data_root}")
-            self.current_project_config.data_root_directory["active"] = data_root
+        if user_config and user_config.data_root and os.path.exists(user_config.data_root):
+            logging.info(f"Using data root directory for user '{username}': {user_config.data_root}")
+            self._active_data_root = user_config.data_root
         else:
-            logging.error(f"No valid data root directory found for user '{username}' and no default. Please update the project config.")
+            logging.error(f"No valid data root directory found for user '{username}'. Please update the project config.")
+            self._active_data_root = None
 
     def is_data_root_valid(self):
         """Return True if the active data root exists and is a directory."""
-        if not self.current_project_config:
-            return False
-        active = self.current_project_config.data_root_directory.get("active")
-        return active is not None and os.path.isdir(active)
+        return self._active_data_root is not None and os.path.isdir(self._active_data_root)
 
     def update_user_data_root(self, new_path):
         """Update the data root for the current OS user, re-resolve, and save."""
@@ -75,7 +68,13 @@ class ProjectService:
             logging.error("No project config loaded, cannot update data root.")
             return
         username = getpass.getuser()
-        self.current_project_config.add_user_path(username, new_path)
+        user_config = self.current_project_config.get_user_by_username(username)
+        if user_config:
+            user_config.data_root = new_path
+        else:
+            self.current_project_config.users.append(
+                UserConfig(username=username, data_root=new_path)
+            )
         self.resolve_data_root_directory()
         self.save_project()
 
@@ -132,14 +131,10 @@ class ProjectService:
     def get_file_path(self, file_entry):
         """Get the full file path for the given file entry."""
         if self.current_project_config:
-            # Get the active data root directory
-            active_root = self.current_project_config.data_root_directory.get("active")
-
-            if not active_root:
+            if not self._active_data_root:
                 logging.error("Active data root directory not set. Please resolve data root directory.")
                 return None
-
-            return os.path.join(active_root, file_entry.path)
+            return os.path.join(self._active_data_root, file_entry.path)
 
         logging.warning(f"No active project configuration loaded.")
         return None
@@ -253,6 +248,8 @@ class ProjectService:
         if os.path.exists(location):
             raise FileExistsError(f"The file {location} already exists.")
 
+        username = getpass.getuser()
+
         default_label_display = [
             LabelDisplay(
                 display_name="Stalk",
@@ -288,7 +285,7 @@ class ProjectService:
 
         project_config = ProjectConfig(
             proj_name=proj_name,
-            data_root_directory=data_root,
+            users=[UserConfig(username=username, data_root=data_root)],
             entries=[],
             label_display=default_label_display
         )
@@ -357,15 +354,14 @@ class ProjectService:
         return proj_name
 
     def get_project_root_dir(self):
-        """Return current project root directory (alert if not found/empty)"""
+        """Return the active data root directory path."""
         if not self.current_project_config:
             logging.warning("No active project configuration loaded.")
             return None
 
-        root_dir = self.current_project_config.data_root_directory
-        if not root_dir:
-            logging.warning("Current project has no root directory")
-        return root_dir
+        if not self._active_data_root:
+            logging.warning("Current project has no active data root directory")
+        return self._active_data_root
 
     def get_entries(self):
         """Return current project entries (alert if not found/empty)"""
@@ -476,16 +472,10 @@ class ProjectService:
             return getpass.getuser()  # Fallback method
 
     def get_user_data_path(self):
-        """Return the correct data path based on the current user."""
-        username = self.get_os_username()
-        data_paths = self.current_project_config.data_root_directory
-
-        if username in data_paths:
-            return data_paths[username]
-        elif 'default' in data_paths:
-            return data_paths['default']
-        else:
-            raise FileNotFoundError(f"No path found for user {username} and no default path available.")
+        """Return the resolved active data root path."""
+        if self._active_data_root:
+            return self._active_data_root
+        raise FileNotFoundError(f"No active data root directory resolved. Please update the project config.")
 
     def get_input_settings(self) -> InputSettings:
         """Return the input settings from the project configuration."""
@@ -496,7 +486,7 @@ class ProjectService:
         return getpass.getuser()
 
     def get_reviewers(self):
-        """Return the reviewers dict from the project config, or empty dict."""
+        """Return a reviewers dict built from the users list."""
         if self.current_project_config:
-            return self.current_project_config.reviewers or {}
+            return {u.username: {"alias": u.alias} for u in self.current_project_config.users}
         return {}
