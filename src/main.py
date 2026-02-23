@@ -183,6 +183,9 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
 
         edit_menu = Menu(self.menu_bar, tearoff=0)
+        edit_menu.add_command(label='Undo', accelerator='Ctrl+Z', command=self.undo_label)
+        edit_menu.add_command(label='Redo', accelerator='Ctrl+Y', command=self.redo_label)
+        edit_menu.add_separator()
         edit_menu.add_command(label='Preferences', command=self.edit_preferences)
 
         help_menu = Menu(self.menu_bar, tearoff=0)
@@ -510,6 +513,14 @@ class MainApplication(tk.Tk):
             # Apply comment save delay to info pane
             self.info_pane._comment_save_delay = dialog.result_comment_save_delay
             self.set_status("Preferences saved.")
+
+    def undo_label(self):
+        """Delegate undo to the viewer."""
+        self.viewer.on_undo()
+
+    def redo_label(self):
+        """Delegate redo to the viewer."""
+        self.viewer.on_redo()
 
     def show_hotkeys(self):
         """Display the hotkey dialog."""

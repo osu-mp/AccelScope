@@ -1,0 +1,89 @@
+{
+    "proj_name": "MyProject",
+    "users": [
+        {
+            "username": "jdoe",
+            "display_name": "Jane Doe",
+            "alias": "JD",
+            "data_root": "D:/research/my_project_data"
+        },
+        {
+            "username": "asmith",
+            "display_name": "Alex Smith",
+            "alias": "AS",
+            "data_root": "/home/asmith/data/my_project_data"
+        }
+    ],
+    "entries": [
+        {
+            "name": "Animal_A",
+            "entries": [
+                {
+                    "path": "AnimalA_12345/MotionData/2024/01 Jan/15/2024-01-15.csv",
+                    "id": "example01",
+                    "labels": [
+                        {
+                            "start_time": "2024-01-15T08:30:00.000000",
+                            "end_time": "2024-01-15T08:35:00.000000",
+                            "behavior": "Walk"
+                        }
+                    ],
+                    "verified_by": ["jdoe"],
+                    "comment": "Clear walking bout visible in all 3 axes"
+                },
+                {
+                    "path": "AnimalA_12345/MotionData/2024/01 Jan/16/2024-01-16.csv",
+                    "id": "example02",
+                    "labels": [],
+                    "verified_by": [],
+                    "comment": ""
+                }
+            ]
+        },
+        {
+            "name": "Animal_B",
+            "entries": []
+        }
+    ],
+    "label_display": [
+        {
+            "display_name": "Walk",
+            "color": "red",
+            "alpha": 0.2,
+            "output_value": "WALK"
+        },
+        {
+            "display_name": "Run",
+            "color": "orange",
+            "alpha": 0.2,
+            "output_value": "RUN"
+        },
+        {
+            "display_name": "Rest",
+            "color": "blue",
+            "alpha": 0.2,
+            "output_value": "REST"
+        },
+        {
+            "display_name": "Feed",
+            "color": "green",
+            "alpha": 0.2,
+            "output_value": "FEED"
+        }
+    ],
+    "output_settings": {
+        "output_type": "bebe",
+        "downsample_methods": ["average"],
+        "output_period": "entire_input",
+        "output_frequency": 16,
+        "buffer_minutes": 5,
+        "round_to_minutes": 1
+    },
+    "input_settings": {
+        "input_type": "VectronicMotion",
+        "input_frequency": 16
+    },
+    "y_range": [-5, 5],
+    "individual_id_regex": "(?P<individual>[^_]+)_",
+    "plot_title_format": "{individual}    {filename_stem}"
+}
