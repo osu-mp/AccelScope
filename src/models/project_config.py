@@ -22,7 +22,8 @@ class ProjectConfig:
     """
     def __init__(self, proj_name, users=None, entries=None, label_display=None,
                  output_settings=None, input_settings=None,
-                 y_range=None, individual_id_regex=None, plot_title_format=None):
+                 y_range=None, individual_id_regex=None, plot_title_format=None,
+                 verification_threshold=None):
         self.proj_name = proj_name
         self.users = users or []
         self.entries = entries or []
@@ -32,6 +33,7 @@ class ProjectConfig:
         self.y_range = y_range if y_range is not None else list(DEFAULT_Y_RANGE)
         self.individual_id_regex = individual_id_regex if individual_id_regex is not None else DEFAULT_INDIVIDUAL_ID_REGEX
         self.plot_title_format = plot_title_format if plot_title_format is not None else DEFAULT_PLOT_TITLE_FORMAT
+        self.verification_threshold = verification_threshold if verification_threshold is not None else 1.0
 
     def to_dict(self):
         """Convert the project config into a dictionary format."""
@@ -45,6 +47,7 @@ class ProjectConfig:
             "y_range": self.y_range,
             "individual_id_regex": self.individual_id_regex,
             "plot_title_format": self.plot_title_format,
+            "verification_threshold": self.verification_threshold,
         }
 
     @staticmethod
@@ -69,6 +72,7 @@ class ProjectConfig:
             y_range=data.get("y_range"),
             individual_id_regex=data.get("individual_id_regex"),
             plot_title_format=data.get("plot_title_format"),
+            verification_threshold=data.get("verification_threshold"),
         )
         return config
 

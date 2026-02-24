@@ -45,12 +45,21 @@ class InfoPane(ttk.Frame):
         self.add_separator()
 
         # Comments Section
-        self.comments_label = ttk.Label(self, text="Comments", font=FONT_BODY)
-        self.comments_label.pack(fill=tk.X, pady=PAD_MD)
+        self.comments_frame = ttk.LabelFrame(self, text="Comments")
+        self.comments_frame.pack(fill=tk.X, pady=PAD_MD)
 
-        self.comments_text = tk.Text(self, height=4, width=40)
-        self.comments_text.pack(fill=tk.X, pady=PAD_MD)
-        self.comments_text.bind("<KeyRelease>", self.on_comments_change)  # Detect changes to comments
+        current_user = self.project_service.get_current_reviewer()
+        reviewers = self.project_service.get_reviewers()
+        alias = reviewers.get(current_user, {}).get("alias", current_user[:2].upper()) if reviewers else current_user[:2].upper()
+
+        ttk.Label(self.comments_frame, text=f"{alias} (you)", font=FONT_BODY).pack(
+            fill=tk.X, padx=PAD_SM, pady=(PAD_SM, 0))
+        self.comments_text = tk.Text(self.comments_frame, height=3, width=40)
+        self.comments_text.pack(fill=tk.X, padx=PAD_SM, pady=PAD_SM)
+        self.comments_text.bind("<KeyRelease>", self.on_comments_change)
+
+        self.other_comments_frame = ttk.Frame(self.comments_frame)
+        self.other_comments_frame.pack(fill=tk.X, padx=PAD_SM, pady=PAD_SM)
         self.add_separator()
 
         # Dynamically generate checkboxes for each data_display item
@@ -211,13 +220,34 @@ class InfoPane(ttk.Frame):
     def set_file_entry(self, file_entry):
         """Update the current FileEntry and update the UI elements."""
         self.current_file_entry = file_entry
+
+        # Always clear comment text first to avoid stale text
+        self.comments_text.delete("1.0", tk.END)
+
+        # Clear other users' comments
+        for widget in self.other_comments_frame.winfo_children():
+            widget.destroy()
+
         if file_entry:
             for username, var in self.reviewer_vars.items():
                 var.set(file_entry.is_verified_by(username))
 
-            if file_entry.comment:
-                self.comments_text.delete("1.0", tk.END)
-                self.comments_text.insert(tk.END, file_entry.comment)
+            # Load current user's comment
+            current_user = self.project_service.get_current_reviewer()
+            user_comment = file_entry.get_comment(current_user)
+            if user_comment:
+                self.comments_text.insert(tk.END, user_comment)
+
+            # Show other users' non-empty comments as read-only labels
+            reviewers = self.project_service.get_reviewers()
+            for username, comment_text in file_entry.comments.items():
+                if username == current_user or not comment_text:
+                    continue
+                alias = reviewers.get(username, {}).get("alias", username[:2].upper()) if reviewers else username
+                ttk.Label(self.other_comments_frame, text=f"{alias}:", font=FONT_BODY).pack(
+                    anchor=tk.W)
+                comment_label = ttk.Label(self.other_comments_frame, text=comment_text, wraplength=200)
+                comment_label.pack(anchor=tk.W, padx=(PAD_SM, 0), pady=(0, PAD_SM))
 
     def _build_reviewer_checkboxes(self):
         """Build one checkbox per reviewer (or a single generic one if no reviewers configured)."""
@@ -279,7 +309,9 @@ class InfoPane(ttk.Frame):
     def on_comments_change(self, event):
         """Handle changes to the comments text field (debounced save)."""
         if self.current_file_entry:
-            self.current_file_entry.comment = self.comments_text.get("1.0", tk.END).strip()
+            current_user = self.project_service.get_current_reviewer()
+            text = self.comments_text.get("1.0", tk.END).strip()
+            self.current_file_entry.set_comment(current_user, text)
             # Debounce: cancel any pending save and schedule a new one after 500ms
             if self._comment_save_after_id is not None:
                 self.after_cancel(self._comment_save_after_id)

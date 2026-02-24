@@ -150,5 +150,37 @@ class TestProjectService(unittest.TestCase):
         finally:
             shutil.rmtree(new_path)
 
+    def test_get_verification_color_all_required(self):
+        """Test verification color with default threshold (1.0 = all reviewers)."""
+        # 0 verified = red
+        self.assertEqual(self.project_service.get_verification_color([]), "red")
+        # 1 of 1 reviewer = green
+        self.assertEqual(self.project_service.get_verification_color(["default_user"]), "green")
+
+    def test_get_verification_color_partial_threshold(self):
+        """Test verification color with 50% threshold."""
+        # Add a second user
+        self.project_config.users.append(UserConfig(username="second_user", data_root=self.test_dir))
+        self.project_config.verification_threshold = 0.5
+        # 0 verified = red
+        self.assertEqual(self.project_service.get_verification_color([]), "red")
+        # 1 of 2 reviewers with 50% threshold -> ceil(0.5*2)=1 -> green
+        self.assertEqual(self.project_service.get_verification_color(["default_user"]), "green")
+
+    def test_get_verification_color_high_threshold(self):
+        """Test verification color with 100% threshold and 2 reviewers."""
+        self.project_config.users.append(UserConfig(username="second_user", data_root=self.test_dir))
+        self.project_config.verification_threshold = 1.0
+        # 1 of 2 with 100% threshold -> yellow
+        self.assertEqual(self.project_service.get_verification_color(["default_user"]), "yellow")
+        # 2 of 2 -> green
+        self.assertEqual(self.project_service.get_verification_color(["default_user", "second_user"]), "green")
+
+    def test_get_verification_color_no_reviewers(self):
+        """Test that any verification = green when no reviewers configured."""
+        self.project_config.users = []
+        self.assertEqual(self.project_service.get_verification_color(["someone"]), "green")
+        self.assertEqual(self.project_service.get_verification_color([]), "red")
+
 if __name__ == '__main__':
     unittest.main()

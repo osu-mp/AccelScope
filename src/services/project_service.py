@@ -451,17 +451,33 @@ class ProjectService:
                     return parent
         return None
 
-    def update_file_comment(self, id, comment):
-        """Update the comment for a specific file entry by file ID."""
+    def update_file_comment(self, id, username, comment):
+        """Update the comment for a specific file entry by file ID and username."""
         if self.current_project_config:
             file_entry = self.find_file_by_id(id)
             if file_entry:
-                file_entry.comment = comment
+                file_entry.set_comment(username, comment)
                 self.save_project()
             else:
                 logging.error(f"File with ID {id} not found.")
         else:
             logging.warning(f"No active project configuration loaded.")
+
+    def get_verification_color(self, verified_by):
+        """Return 'red', 'yellow', or 'green' based on reviewer verification state and threshold."""
+        num_verified = len(verified_by)
+        if num_verified == 0:
+            return "red"
+        reviewers = self.get_reviewers()
+        num_reviewers = len(reviewers)
+        if num_reviewers == 0:
+            # No reviewers configured — any verification counts as green
+            return "green"
+        threshold = self.current_project_config.verification_threshold if self.current_project_config else 1.0
+        required = math.ceil(threshold * num_reviewers)
+        if num_verified >= required:
+            return "green"
+        return "yellow"
 
     @staticmethod
     def get_os_username():

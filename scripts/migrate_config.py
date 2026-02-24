@@ -11,7 +11,7 @@ import sys
 
 
 def migrate_file_entries(entries):
-    """Recursively normalize user_verified -> verified_by in file entries."""
+    """Recursively normalize user_verified -> verified_by and comment -> comments in file entries."""
     for entry in entries:
         if "entries" in entry:
             migrate_file_entries(entry["entries"])
@@ -23,6 +23,15 @@ def migrate_file_entries(entries):
                 else:
                     entry["verified_by"] = []
                 del entry["user_verified"]
+
+            # Migrate comment string -> comments dict
+            if "comment" in entry and "comments" not in entry:
+                old_comment = entry["comment"]
+                if old_comment:
+                    entry["comments"] = {"default": old_comment}
+                else:
+                    entry["comments"] = {}
+                del entry["comment"]
 
 
 def migrate_config(data):

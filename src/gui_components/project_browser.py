@@ -180,17 +180,7 @@ class ProjectBrowser(ttk.Frame):
 
     def _get_verification_color(self, verified_by):
         """Return 'red', 'yellow', or 'green' based on reviewer verification state."""
-        num_verified = len(verified_by)
-        if num_verified == 0:
-            return "red"
-        reviewers = self.project_service.get_reviewers()
-        num_reviewers = len(reviewers)
-        if num_reviewers == 0:
-            # No reviewers configured — any verification counts as green
-            return "green"
-        if num_verified >= num_reviewers:
-            return "green"
-        return "yellow"
+        return self.project_service.get_verification_color(verified_by)
 
     def update_tree_item_color(self, id, verified_by):
         """Update the color of the tree item based on the verified_by list."""

@@ -47,6 +47,17 @@
 - [ ] Import CSV referencing a non-existent file_id → verify it reports skipped files in summary
 - [ ] Round-trip: export → import into same project → verify labels match exactly
 
+## Verify: Per-User Comments & Verification Threshold
+
+- [ ] Open project — verify own comment is editable, other users' comments are read-only
+- [ ] Switch files — verify no stale comment text persists (bug fix)
+- [ ] Type in comment → switch files → switch back → verify comment persisted
+- [ ] Set verification threshold to 50% via Project menu — verify 1-of-2 users verified = green
+- [ ] Create new project — verify threshold defaults to 100%
+- [ ] Open Labeling Dashboard — verify "Files Fully Verified" count respects threshold
+- [ ] Run migration script on old config with "comment" field — verify "comments" dict in JSON
+- [ ] Verify old configs with empty "comment" field migrate to empty "comments" dict
+
 ## Verify: Multi-Reviewer Verification
 
 - [ ] Load yellowstone_cougars.json — verify `user_verified: true` files show as verified by "default", tree colors correct

@@ -107,6 +107,24 @@ class TestProjectConfig(unittest.TestCase):
 		loaded = ProjectConfig.from_dict(d)
 		self.assertEqual(loaded.users, [])
 
+	def test_verification_threshold_default(self):
+		"""Test that verification_threshold defaults to 1.0."""
+		project = ProjectConfig(proj_name="Test")
+		self.assertEqual(project.verification_threshold, 1.0)
+
+	def test_verification_threshold_round_trip(self):
+		"""Test verification_threshold serialization and deserialization."""
+		project = ProjectConfig(proj_name="Test", verification_threshold=0.5)
+		d = project.to_dict()
+		self.assertEqual(d["verification_threshold"], 0.5)
+		loaded = ProjectConfig.from_dict(d)
+		self.assertEqual(loaded.verification_threshold, 0.5)
+
+	def test_verification_threshold_missing_key_defaults(self):
+		"""Test that missing verification_threshold key defaults to 1.0."""
+		d = {"proj_name": "Test", "entries": [], "users": []}
+		loaded = ProjectConfig.from_dict(d)
+		self.assertEqual(loaded.verification_threshold, 1.0)
 
 
 if __name__ == '__main__':

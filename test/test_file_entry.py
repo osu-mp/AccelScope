@@ -32,7 +32,7 @@ class TestFileEntry(unittest.TestCase):
             "path": "data/F202_2018-05-20.csv",
             "id": "123",
             "labels": [],
-            "comment": "",
+            "comments": {},
             "verified_by": [],
         }
         self.assertEqual(file_dict, expected)
@@ -116,6 +116,54 @@ class TestFileEntry(unittest.TestCase):
         # Removing non-existent should be safe
         file_entry.set_verified_by("mpace", False)
         self.assertEqual(file_entry.verified_by, ["sarah"])
+
+    def test_migration_old_comment_string(self):
+        """Test migration from old comment string to comments dict."""
+        data = {
+            "path": "data/test.csv",
+            "id": "789",
+            "labels": [],
+            "comment": "some note"
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.comments, {"default": "some note"})
+
+    def test_migration_old_comment_empty(self):
+        """Test migration from old empty comment string to empty comments dict."""
+        data = {
+            "path": "data/test.csv",
+            "id": "789",
+            "labels": [],
+            "comment": ""
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.comments, {})
+
+    def test_comments_dict_from_dict(self):
+        """Test loading a comments dict directly."""
+        data = {
+            "path": "data/test.csv",
+            "id": "789",
+            "labels": [],
+            "comments": {"mpace": "looks good", "sarah": "needs review"}
+        }
+        file_entry = FileEntry.from_dict(data)
+        self.assertEqual(file_entry.comments, {"mpace": "looks good", "sarah": "needs review"})
+
+    def test_get_comment(self):
+        """Test get_comment helper."""
+        file_entry = FileEntry(path="test.csv", id="1", comments={"mpace": "hello"})
+        self.assertEqual(file_entry.get_comment("mpace"), "hello")
+        self.assertEqual(file_entry.get_comment("sarah"), "")
+
+    def test_set_comment(self):
+        """Test set_comment helper."""
+        file_entry = FileEntry(path="test.csv", id="1")
+        file_entry.set_comment("mpace", "a note")
+        self.assertEqual(file_entry.comments, {"mpace": "a note"})
+        # Setting empty should remove the key
+        file_entry.set_comment("mpace", "")
+        self.assertEqual(file_entry.comments, {})
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ class UserAppConfigService:
             with open(UserAppConfigService.USER_CONFIG_FILE, 'r') as file:
                 data = json.load(file)
                 logging.debug(f"Loaded app config from {UserAppConfigService.USER_CONFIG_FILE}")
-                return UserAppConfig(**data)
+                return UserAppConfig.from_dict(data)
         return UserAppConfig()  # Return a new instance with default values if the file does not exist
 
     # Update methods to keep main_gui read-only with respect to the user configuration

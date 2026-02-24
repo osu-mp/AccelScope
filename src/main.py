@@ -16,6 +16,7 @@ from gui_components.preferences_dialog import PreferencesDialog
 from gui_components.hotkey_dialog import HotkeyDialog
 from gui_components.output_progress_dialog import OutputProgressDialog
 from gui_components.project_browser import ProjectBrowser
+from gui_components.verification_threshold_dialog import VerificationThresholdDialog
 from gui_components.viewer import Viewer
 from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
@@ -178,6 +179,7 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Import Labels from CSV...', command=self.import_labels_csv)
         proj_menu.add_separator()
         proj_menu.add_command(label='Labeling Dashboard', command=self.show_labeling_dashboard)
+        proj_menu.add_command(label='Verification Threshold...', command=self.edit_verification_threshold)
         proj_menu.add_separator()
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
@@ -188,6 +190,18 @@ class MainApplication(tk.Tk):
         edit_menu.add_separator()
         edit_menu.add_command(label='Preferences', command=self.edit_preferences)
 
+        # View menu
+        view_menu = Menu(self.menu_bar, tearoff=0)
+        view_menu.add_command(label='Zoom to All Data', accelerator='A',
+                              command=lambda: self.viewer.zoom_out_to_show_all())
+        view_menu.add_command(label='Fit to Labels', accelerator='F',
+                              command=lambda: self.viewer.zoom_in_on_all_labels())
+        view_menu.add_separator()
+        view_menu.add_command(label='Zoom In', accelerator='Up / Ctrl+Scroll Up')
+        view_menu.add_command(label='Zoom Out', accelerator='Down / Ctrl+Scroll Down')
+        view_menu.add_command(label='Pan Left', accelerator='Left / Scroll Down')
+        view_menu.add_command(label='Pan Right', accelerator='Right / Scroll Up')
+
         help_menu = Menu(self.menu_bar, tearoff=0)
         help_menu.add_command(label="Hotkeys", command=self.show_hotkeys)
         help_menu.add_command(label='About', command=self.show_about)
@@ -195,6 +209,7 @@ class MainApplication(tk.Tk):
         self.menu_bar.add_cascade(label='File', menu=file_menu)
         self.menu_bar.add_cascade(label='Project', menu=proj_menu)
         self.menu_bar.add_cascade(label='Edit', menu=edit_menu)
+        self.menu_bar.add_cascade(label='View', menu=view_menu)
         self.menu_bar.add_cascade(label='Help', menu=help_menu)
 
         self.config(menu=self.menu_bar)
@@ -343,10 +358,29 @@ class MainApplication(tk.Tk):
         file_entries = []
         self._collect_file_entries(self.project_service.get_entries(), file_entries)
 
-        dialog = LabelingDashboardDialog(self, file_entries, config.label_display, self.project_service.get_reviewers())
+        dialog = LabelingDashboardDialog(self, file_entries, config.label_display, self.project_service.get_reviewers(),
+                                         verification_threshold=config.verification_threshold)
         dialog.transient(self)
         dialog.grab_set()
         self.wait_window(dialog)
+
+    def edit_verification_threshold(self):
+        """Open dialog to edit the verification threshold."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        config = self.project_service.current_project_config
+        dialog = VerificationThresholdDialog(self, current_threshold=config.verification_threshold)
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        if dialog.result_ready:
+            config.verification_threshold = dialog.result_threshold
+            self.project_service.save_project()
+            self.project_browser.load_project()
+            self.set_status(f"Verification threshold set to {int(dialog.result_threshold * 100)}%.")
 
     def _collect_file_entries(self, entries, result):
         """Recursively collect all FileEntry objects from the project tree."""

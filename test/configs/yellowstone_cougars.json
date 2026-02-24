@@ -2,21 +2,15 @@
     "proj_name": "YellowstoneCougars",
     "users": [
         {
-            "username": "mpace",
-            "display_name": "Matt Pace",
-            "alias": "MP",
-            "data_root": "C:/repos/cougar_data"
-        },
-        {
             "username": "wbinde",
-            "display_name": "Wes Binder",
-            "alias": "WB",
+            "display_name": "Wesley Binder",
+            "alias": "Wes",
             "data_root": "TODO get external path from Wes"
         },
         {
             "username": "matthew",
-            "display_name": "Matthew Pace",
-            "alias": "MP2",
+            "display_name": "Matthew Pacey",
+            "alias": "Matt",
             "data_root": "C:/repos/cougar_data"
         }
     ],
@@ -57,9 +51,12 @@
                                 }
                             ],
                             "verified_by": [
-                                "default"
+                                "default",
+                                "matthew"
                             ],
-                            "comment": ""
+                            "comments": {
+                                "default": "Matthew test:"
+                            }
                         },
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/07 Jul/18/2018-07-18.csv",
@@ -68,7 +65,9 @@
                             "verified_by": [
                                 "default"
                             ],
-                            "comment": "MP: Spreadsheet lists 12:19:15 AM but it does not align with file\nPerhaps around 19:00?"
+                            "comments": {
+                                "default": "MP: Spreadsheet lists 12:19:15 AM but it does not align with file\nPerhaps around 19:00?"
+                            }
                         },
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/03 Mar/24/2018-03-24.csv",
@@ -96,9 +95,10 @@
                                 }
                             ],
                             "verified_by": [
-                                "default"
+                                "default",
+                                "matthew"
                             ],
-                            "comment": ""
+                            "comments": {}
                         },
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/05 May/20/2018-05-20.csv",
@@ -123,14 +123,16 @@
                             "verified_by": [
                                 "default"
                             ],
-                            "comment": "MP: Does stalking start around 10:48?\nMP: Feeding could likely be extended.\nMP: odd data in csv (goes backward in time):\n17:30:09,986,-0.25,0.91,-0.38\n\nWB: Always take first entry, discard last\n17:30:10,48,-0.25,0.91,-0.38\n17:30:10,111,-0.25,0.94,-0.38\n17:30:10,173,-0.25,0.91,-0.34\n17:30:10,236,-0.25,0.91,-0.38\n17:30:09,298,-0.25,0.91,-0.38\n17:30:09,361,-0.25,0.91,-0.38"
+                            "comments": {
+                                "default": "MP: Does stalking start around 10:48?\nMP: Feeding could likely be extended.\nMP: odd data in csv (goes backward in time):\n17:30:09,986,-0.25,0.91,-0.38\n\nWB: Always take first entry, discard last\n17:30:10,48,-0.25,0.91,-0.38\n17:30:10,111,-0.25,0.94,-0.38\n17:30:10,173,-0.25,0.91,-0.34\n17:30:10,236,-0.25,0.91,-0.38\n17:30:09,298,-0.25,0.91,-0.38\n17:30:09,361,-0.25,0.91,-0.38"
+                            }
                         },
                         {
                             "path": "F202_27905_010518_072219/MotionData_27905/2018/05 May/22/2018-05-22.csv",
                             "id": "d6d741ed",
                             "labels": [],
                             "verified_by": [],
-                            "comment": ""
+                            "comments": {}
                         },
                         {
                             "name": "SecondFeedings",
@@ -201,5 +203,6 @@
         5
     ],
     "individual_id_regex": "(?P<individual>[^_]+)_",
-    "plot_title_format": "{individual}    {filename_stem}"
+    "plot_title_format": "{individual}    {filename_stem}",
+    "verification_threshold": 1.0
 }

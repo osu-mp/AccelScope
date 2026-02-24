@@ -8,28 +8,40 @@ from gui_components.gui_theme import PAD_MD, PAD_LG, FONT_TITLE, FONT_HEADING, F
 class LabelingDashboardDialog(tk.Toplevel):
     """Read-only dashboard showing project-wide labeling progress and statistics."""
 
-    def __init__(self, parent, file_entries, label_displays, reviewers):
+    def __init__(self, parent, file_entries, label_displays, reviewers, verification_threshold=1.0):
         super().__init__(parent)
         self.title("Labeling Dashboard")
         self.resizable(True, True)
         self.minsize(480, 300)
 
+        # Set initial geometry based on parent size
+        pw = parent.winfo_width() if parent.winfo_width() > 1 else 1200
+        ph = parent.winfo_height() if parent.winfo_height() > 1 else 800
+        w = max(640, min(900, int(pw * 0.6)))
+        h = max(500, min(700, int(ph * 0.7)))
+        x = parent.winfo_rootx() + (pw - w) // 2
+        y = parent.winfo_rooty() + (ph - h) // 2
+        self.geometry(f"{w}x{h}+{x}+{y}")
+
         self.file_entries = file_entries
         self.label_displays = label_displays
         self.reviewers = reviewers
+        self.verification_threshold = verification_threshold
 
         self._compute_stats()
         self._build_ui()
 
     def _is_fully_verified(self, fe):
         """Return True if file is fully verified (green status)."""
+        import math
         num_verified = len(fe.verified_by)
         if num_verified == 0:
             return False
         num_reviewers = len(self.reviewers)
         if num_reviewers == 0:
             return True
-        return num_verified >= num_reviewers
+        required = math.ceil(self.verification_threshold * num_reviewers)
+        return num_verified >= required
 
     def _format_duration(self, total_seconds):
         """Format seconds as 'X.Y sec' or 'X.Y min'."""
@@ -74,8 +86,13 @@ class LabelingDashboardDialog(tk.Toplevel):
         self.content_frame = ttk.Frame(canvas)
 
         self.content_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
+        self._canvas_window = canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Stretch content frame to fill canvas width
+        def _on_canvas_configure(event):
+            canvas.itemconfigure(self._canvas_window, width=event.width)
+        canvas.bind("<Configure>", _on_canvas_configure)
 
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -93,6 +110,8 @@ class LabelingDashboardDialog(tk.Toplevel):
 
         stats_frame = ttk.Frame(frame)
         stats_frame.pack(fill=tk.X, padx=PAD_LG, pady=PAD_MD)
+        stats_frame.columnconfigure(0, weight=1)
+        stats_frame.columnconfigure(1, weight=1)
 
         stat_items = [
             ("Total Files", str(self.total_files)),
@@ -134,11 +153,11 @@ class LabelingDashboardDialog(tk.Toplevel):
         behavior_tree.heading("files", text="Files")
         behavior_tree.heading("duration", text="Total Duration")
 
-        behavior_tree.column("behavior", width=120)
-        behavior_tree.column("color", width=60, anchor=tk.CENTER)
-        behavior_tree.column("labels", width=60, anchor=tk.CENTER)
-        behavior_tree.column("files", width=60, anchor=tk.CENTER)
-        behavior_tree.column("duration", width=100, anchor=tk.E)
+        behavior_tree.column("behavior", width=120, stretch=True)
+        behavior_tree.column("color", width=60, anchor=tk.CENTER, stretch=False)
+        behavior_tree.column("labels", width=60, anchor=tk.CENTER, stretch=False)
+        behavior_tree.column("files", width=60, anchor=tk.CENTER, stretch=False)
+        behavior_tree.column("duration", width=100, anchor=tk.E, stretch=False)
 
         for ld in self.label_displays:
             stats = self.behavior_stats.get(ld.display_name, {"labels": 0, "files": set(), "duration_sec": 0.0})
@@ -168,10 +187,10 @@ class LabelingDashboardDialog(tk.Toplevel):
             reviewer_tree.heading("files_verified", text="Files Verified")
             reviewer_tree.heading("pct", text="%")
 
-            reviewer_tree.column("reviewer", width=120)
-            reviewer_tree.column("alias", width=60, anchor=tk.CENTER)
-            reviewer_tree.column("files_verified", width=100, anchor=tk.CENTER)
-            reviewer_tree.column("pct", width=60, anchor=tk.E)
+            reviewer_tree.column("reviewer", width=120, stretch=True)
+            reviewer_tree.column("alias", width=60, anchor=tk.CENTER, stretch=False)
+            reviewer_tree.column("files_verified", width=100, anchor=tk.CENTER, stretch=False)
+            reviewer_tree.column("pct", width=60, anchor=tk.E, stretch=False)
 
             for username, rev_stats in self.reviewer_stats.items():
                 rev_pct = (rev_stats["count"] / self.total_files * 100) if self.total_files > 0 else 0

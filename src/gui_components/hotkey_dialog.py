@@ -26,7 +26,11 @@ class HotkeyDialog(tk.Toplevel):
             ("Down Arrow", "Zoom out"),
             ("Left Arrow", "Pan left"),
             ("Right Arrow", "Pan right"),
-            ("Delete", "Delete selected label")
+            ("Delete", "Delete selected label"),
+            ("Scroll Wheel", "Pan left/right"),
+            ("Ctrl + Scroll", "Zoom in/out at cursor"),
+            ("Ctrl + Z", "Undo"),
+            ("Ctrl + Y", "Redo"),
         ]
 
         # Create table headers
