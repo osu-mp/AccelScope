@@ -1,4 +1,11 @@
+import sys
+from pathlib import Path
+
 import unittest
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
 from models.file_entry import FileEntry
 from models.directory_entry import DirectoryEntry
 
@@ -31,7 +38,7 @@ class TestDirectoryEntry(unittest.TestCase):
                     "path": "data/F202_2018-05-20.csv",
                     "id": "123",
                     "labels": [],
-                    "comment": "",
+                    "comments": {},
                     "verified_by": [],
                 }
             ]
