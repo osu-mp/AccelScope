@@ -51,11 +51,12 @@
                                 }
                             ],
                             "verified_by": [
-                                "default",
-                                "matthew"
+                                "matthew", 
+                                "wbinde"
                             ],
                             "comments": {
-                                "default": "Matthew test:"
+                                "matthew": "Matthew test:",
+                                "wbinde": "Wes test: This is a comment on the predation event labels for this file."
                             }
                         },
                         {
@@ -63,10 +64,9 @@
                             "id": "a1d851d6",
                             "labels": [],
                             "verified_by": [
-                                "default"
                             ],
                             "comments": {
-                                "default": "MP: Spreadsheet lists 12:19:15 AM but it does not align with file\nPerhaps around 19:00?"
+                                "matthew": "Spreadsheet lists 12:19:15 AM but it does not align with file\nPerhaps around 19:00?"
                             }
                         },
                         {
@@ -95,7 +95,6 @@
                                 }
                             ],
                             "verified_by": [
-                                "default",
                                 "matthew"
                             ],
                             "comments": {}
@@ -121,10 +120,10 @@
                                 }
                             ],
                             "verified_by": [
-                                "default"
+                                
                             ],
                             "comments": {
-                                "default": "MP: Does stalking start around 10:48?\nMP: Feeding could likely be extended.\nMP: odd data in csv (goes backward in time):\n17:30:09,986,-0.25,0.91,-0.38\n\nWB: Always take first entry, discard last\n17:30:10,48,-0.25,0.91,-0.38\n17:30:10,111,-0.25,0.94,-0.38\n17:30:10,173,-0.25,0.91,-0.34\n17:30:10,236,-0.25,0.91,-0.38\n17:30:09,298,-0.25,0.91,-0.38\n17:30:09,361,-0.25,0.91,-0.38"
+                                "matthew": "Does stalking start around 10:48?\nMP: Feeding could likely be extended.\nMP: odd data in csv (goes backward in time):\n17:30:09,986,-0.25,0.91,-0.38\n\nWB: Always take first entry, discard last\n17:30:10,48,-0.25,0.91,-0.38\n17:30:10,111,-0.25,0.94,-0.38\n17:30:10,173,-0.25,0.91,-0.34\n17:30:10,236,-0.25,0.91,-0.38\n17:30:09,298,-0.25,0.91,-0.38\n17:30:09,361,-0.25,0.91,-0.38"
                             }
                         },
                         {
@@ -199,8 +198,8 @@
         "input_frequency": 16
     },
     "y_range": [
-        -5,
-        5
+        -4,
+        4
     ],
     "individual_id_regex": "(?P<individual>[^_]+)_",
     "plot_title_format": "{individual}    {filename_stem}",

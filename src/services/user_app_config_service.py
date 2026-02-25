@@ -84,11 +84,8 @@ class UserAppConfigService:
 
     def set_last_opened_file(self, last_opened_file):
         """
-        Reload the last opened CSV
-        :param last_opened_file:
-        :return:
+        Remember the last opened file ID so it can be reopened on next launch.
+        :param last_opened_file: File entry ID (string)
         """
         self.config.last_opened_file = last_opened_file
         self.save_to_file()
-        self.current_project_config = last_opened_file
-        self.get_project_config()

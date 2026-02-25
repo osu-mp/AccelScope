@@ -219,6 +219,12 @@ class InfoPane(ttk.Frame):
 
     def set_file_entry(self, file_entry):
         """Update the current FileEntry and update the UI elements."""
+        # Flush any pending comment save before switching files
+        if self._comment_save_after_id is not None:
+            self.after_cancel(self._comment_save_after_id)
+            self._comment_save_after_id = None
+            self.project_service.save_project()
+
         self.current_file_entry = file_entry
 
         # Always clear comment text first to avoid stale text

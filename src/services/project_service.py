@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import tempfile
 import re
 import uuid
 from models.directory_entry import DirectoryEntry
@@ -79,16 +80,31 @@ class ProjectService:
         self.save_project()
 
     def save_project(self):
-        """Save the current project configuration to the specified file path."""
+        """Save the current project configuration to the specified file path.
+
+        Uses atomic write (temp file + rename) to prevent corruption if the
+        process crashes mid-write.
+        """
         if not self.current_project_path:
             logging.error("Unable to save project config, no current_project_path set")
             return
 
         if self.current_project_config:
             try:
-                with open(self.current_project_path, 'w') as file:
-                    json.dump(self.current_project_config.to_dict(), file, indent=4)
+                dir_name = os.path.dirname(os.path.abspath(self.current_project_path))
+                fd, temp_path = tempfile.mkstemp(suffix='.json', dir=dir_name, text=True)
+                try:
+                    with os.fdopen(fd, 'w') as f:
+                        json.dump(self.current_project_config.to_dict(), f, indent=4)
+                    os.replace(temp_path, self.current_project_path)
                     logging.info(f"Saved project configuration to {self.current_project_path}")
+                except BaseException:
+                    # Clean up temp file on any failure
+                    try:
+                        os.unlink(temp_path)
+                    except OSError:
+                        pass
+                    raise
             except Exception as e:
                 logging.error(f"Failed to save project configuration: {e}")
         else:
@@ -164,12 +180,14 @@ class ProjectService:
         # Split the path and traverse the directory structure
         segments = path.strip('/').split('/')  # Remove leading/trailing slashes and split into segments
         current_entries = self.current_project_config.entries
+        matched_dir = None
 
         # Traverse the path from the top-level entries
         for segment in segments:
             found = False
             for entry in current_entries:
                 if isinstance(entry, DirectoryEntry) and entry.name == segment:
+                    matched_dir = entry
                     current_entries = entry.entries
                     found = True
                     break
@@ -178,7 +196,7 @@ class ProjectService:
                 return None, False  # If no matching directory is found, return None
 
         # Return the final DirectoryEntry object
-        return entry if isinstance(entry, DirectoryEntry) else None, False
+        return matched_dir, False
 
     def add_directory(self, parent_full_path, new_dir_name):
         """Add a new directory entry to the specified parent directory path in the project configuration."""
@@ -399,7 +417,11 @@ class ProjectService:
 
         # Format the title
         title_format = config.plot_title_format if config else "{individual}    {filename_stem}"
-        return title_format.format(individual=individual, filename_stem=filename_stem)
+        try:
+            return title_format.format(individual=individual, filename_stem=filename_stem)
+        except (KeyError, ValueError) as e:
+            logging.warning(f"Invalid plot title format '{title_format}': {e}")
+            return f"{individual}    {filename_stem}"
 
     def get_step_time_ms(self):
         """
@@ -495,7 +517,7 @@ class ProjectService:
 
     def get_input_settings(self) -> InputSettings:
         """Return the input settings from the project configuration."""
-        return self.project_config.input_settings if self.project_config else None
+        return self.current_project_config.input_settings if self.current_project_config else None
 
     def get_current_reviewer(self):
         """Return the current OS username as the reviewer name."""

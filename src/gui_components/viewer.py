@@ -675,8 +675,9 @@ class Viewer(tk.Frame):
         # Retrieve behaviors from the project config
         behaviors = [label.display_name for label in self.project_config.label_display]
 
-        # If there are no behaviors defined, handle it accordingly
+        # If there are no behaviors defined, tell the user
         if not behaviors:
+            tk.messagebox.showinfo("No Behaviors", "No behavior labels are defined.\nUse Project > Edit Behavior Labels to add behaviors.")
             return None
 
         # Prompt the user to select a behavior
