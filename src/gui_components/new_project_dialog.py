@@ -31,6 +31,14 @@ class NewProjectDialog(tk.Toplevel):
         self.data_root_entry.grid(row=2, column=1, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
         ttk.Button(self, text="Browse", command=self.select_directory).grid(row=2, column=2, padx=PAD_MD, pady=PAD_MD)
 
+        # File Extensions
+        ttk.Label(self, text="File Extensions:").grid(row=3, column=0, sticky=tk.W, padx=PAD_MD, pady=PAD_MD)
+        self.extensions_entry = ttk.Entry(self)
+        self.extensions_entry.insert(0, ".csv")
+        self.extensions_entry.grid(row=3, column=1, sticky=tk.EW, padx=PAD_MD, pady=PAD_MD)
+        ttk.Label(self, text="Comma-separated, e.g. .csv, .txt", foreground="gray").grid(
+            row=3, column=2, sticky=tk.W, padx=PAD_MD)
+
         # Confirmation Buttons
         ttk.Button(self, text="Cancel", command=self.destroy).grid(row=4, column=0, padx=PAD_MD, pady=PAD_MD)
         ttk.Button(self, text="Create Project", command=self.create_project).grid(row=4, column=1, padx=PAD_MD, pady=PAD_MD)

@@ -238,8 +238,10 @@ class ProjectService:
         parent_dir, is_root = self.find_directory_by_path(parent_full_path)
 
         if parent_dir is not None:
-            # Add the file entry to the directory
-            parent_dir.entries.append(file_entry)
+            if is_root:
+                self.current_project_config.entries.append(file_entry)
+            else:
+                parent_dir.entries.append(file_entry)
             logging.info(f"Added new file '{file_entry.path}' under '{parent_full_path}' with ID '{unique_id}'.")
 
             # Save the project configuration to persist changes

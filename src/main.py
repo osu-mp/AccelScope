@@ -7,6 +7,7 @@ from tkinter import Menu, filedialog, messagebox
 
 from gui_components import gui_theme
 from gui_components.about_dialog import AboutDialog
+from gui_components.add_reviewer_dialog import AddReviewerDialog
 from gui_components.edit_input_settings_dialog import EditInputSettingsDialog
 from gui_components.edit_label_display_dialog import EditLabelDisplayDialog
 from gui_components.info_pane import InfoPane
@@ -174,6 +175,9 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Change Data Root...', command=self.change_data_root)
         proj_menu.add_command(label='Edit Behavior Labels...', command=self.edit_label_display)
         proj_menu.add_command(label='Edit Input Settings...', command=self.edit_input_settings)
+        proj_menu.add_separator()
+        proj_menu.add_command(label='Add Reviewer To Project...', command=self.add_reviewer_to_project)
+        proj_menu.add_command(label='Add File To Project...', command=self.add_file_to_project)
         proj_menu.add_separator()
         proj_menu.add_command(label='Export Labels to CSV...', command=self.export_labels_csv)
         proj_menu.add_command(label='Import Labels from CSV...', command=self.import_labels_csv)
@@ -347,6 +351,44 @@ class MainApplication(tk.Tk):
             self.viewer.set_project_config(config)
             self.viewer.update_plot()
             self.set_status("Input settings updated.")
+
+    def add_reviewer_to_project(self):
+        """Open dialog to add a reviewer to the project."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        config = self.project_service.current_project_config
+        dialog = AddReviewerDialog(self, config.users)
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        if dialog.result_ready and dialog.result_user_config:
+            config.users.append(dialog.result_user_config)
+            self.project_service.save_project()
+            self.info_pane._build_reviewer_checkboxes()
+            self.set_status(f"Added reviewer '{dialog.result_user_config.username}' to project.")
+
+    def add_file_to_project(self):
+        """Add a CSV file to the project via the project browser."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        if not self.project_service.is_data_root_valid():
+            messagebox.showwarning("No Data Root", "No valid data root directory is configured for this project.")
+            return
+
+        # Ensure a tree node is selected so the browser's add_csv has a target directory.
+        # If nothing is selected, fall back to the project root node.
+        if not self.project_browser.tree.selection():
+            root_items = self.project_browser.tree.get_children('')
+            if root_items:
+                self.project_browser.tree.selection_set(root_items[0])
+
+        self.project_browser.add_csv()
+
 
     def show_labeling_dashboard(self):
         """Open the labeling progress dashboard dialog."""

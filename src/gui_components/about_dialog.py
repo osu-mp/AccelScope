@@ -37,7 +37,7 @@ class AboutDialog(tk.Toplevel):
         github_label.bind("<Button-1>", lambda e: self.open_link("https://github.com/osu-mp/AccelScope"))
 
         # Create a contact information label with the email acting as a link
-        contact_label = ttk.Label(self, text="Contact: paceym@oregonstate.edu", foreground="blue", cursor="hand2")
+        contact_label = ttk.Label(self, text="Contact: accelscope@gmail.com", foreground="blue", cursor="hand2")
         contact_label.grid(row=3, column=0, pady=(0, PAD_LG), padx=PAD_LG)
         contact_label.bind("<Button-1>", lambda e: self.copy_email_to_clipboard())
 
