@@ -77,6 +77,20 @@
 - [ ] Verify dialog works with a project that has zero labels (all zeros, no crash)
 - [ ] Close button dismisses the dialog
 
+## Verify: Auto-Import, My Profile, Flatten by Individual
+
+- [ ] New Project → browse data root → verify file tree populates with matching extensions
+- [ ] Deselect some files → Create Project → verify only checked files appear in project browser
+- [ ] Toggle "Flatten by individual" → verify tree reorganises by individual ID (first segment before `_`)
+- [ ] Files whose paths don't match the regex → verify they land in "Unknown" folder
+- [ ] Select All / Deselect All buttons → verify count label updates correctly
+- [ ] Create project with no files checked → verify empty project created (no crash)
+- [ ] Project > My Profile → dialog shows current OS username (read-only), editable display name + alias
+- [ ] Update display name and alias → Save → verify info pane "X (you)" label updates immediately
+- [ ] Update alias → verify reviewer checkboxes in verification section show new alias
+- [ ] Open My Profile when not yet in project users list → save → verify new UserConfig added to JSON
+- [ ] Add Reviewer → verify new reviewer appears in info pane verification section without restart
+
 ## Verify: User Config Refactor (data_root_directory -> users list)
 
 - [ ] Run migration script on test configs — verify JSON has `users` list, no `data_root_directory` or `reviewers`
