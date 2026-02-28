@@ -189,6 +189,7 @@ class Viewer(tk.Frame):
             self.data_path = file_path
             self.labels = file_entry.labels
             self._command_stack.clear()
+            self.current_xlim = None  # reset zoom so new file shows all data
             self.setup_mouse_events()
 
             # Finalize loading status and update label display

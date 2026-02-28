@@ -265,6 +265,8 @@ class MainApplication(tk.Tk):
             self.viewer.clear_plot()
             self.viewer.set_project_config(self.project_service.current_project_config)
             self.info_pane.set_project_service(self.project_service)
+            self.info_pane.set_file_entry(None)
+            self.info_pane._build_reviewer_checkboxes()
 
     def open_file(self, file_entry):
         self.status_bar.set(f"Attempting to load CSV: {file_entry.path}")
