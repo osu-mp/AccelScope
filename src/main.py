@@ -1,4 +1,5 @@
 import csv
+import getpass
 import logging
 import os.path
 import threading
@@ -8,6 +9,7 @@ from tkinter import Menu, filedialog, messagebox
 from gui_components import gui_theme
 from gui_components.about_dialog import AboutDialog
 from gui_components.add_reviewer_dialog import AddReviewerDialog
+from gui_components.my_profile_dialog import MyProfileDialog
 from gui_components.edit_input_settings_dialog import EditInputSettingsDialog
 from gui_components.edit_label_display_dialog import EditLabelDisplayDialog
 from gui_components.info_pane import InfoPane
@@ -24,6 +26,7 @@ from gui_components.new_project_dialog import NewProjectDialog
 from models.directory_entry import DirectoryEntry
 from models.file_entry import FileEntry
 from models.label import Label
+from models.user_config import UserConfig
 from output_types.bebe_output import BEBEOutput
 from services.project_service import ProjectService
 from services.user_app_config_service import UserAppConfigService
@@ -176,6 +179,7 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Edit Behavior Labels...', command=self.edit_label_display)
         proj_menu.add_command(label='Edit Input Settings...', command=self.edit_input_settings)
         proj_menu.add_separator()
+        proj_menu.add_command(label='My Profile...', command=self.edit_my_profile)
         proj_menu.add_command(label='Add Reviewer To Project...', command=self.add_reviewer_to_project)
         proj_menu.add_command(label='Add File To Project...', command=self.add_file_to_project)
         proj_menu.add_separator()
@@ -351,6 +355,38 @@ class MainApplication(tk.Tk):
             self.viewer.set_project_config(config)
             self.viewer.update_plot()
             self.set_status("Input settings updated.")
+
+    def edit_my_profile(self):
+        """Let the current OS user update their display name and alias."""
+        if not self.project_service.current_project_config:
+            messagebox.showwarning("No Project", "No project is currently open.")
+            return
+
+        username = getpass.getuser()
+        config = self.project_service.current_project_config
+        user_cfg = config.get_user_by_username(username)
+
+        current_display = user_cfg.display_name if user_cfg else username.capitalize()
+        current_alias = user_cfg.alias if user_cfg else username[:2].upper()
+
+        dialog = MyProfileDialog(self, username, current_display, current_alias)
+        dialog.transient(self)
+        dialog.grab_set()
+        self.wait_window(dialog)
+
+        if dialog.result_ready:
+            if user_cfg:
+                user_cfg.display_name = dialog.result_display_name
+                user_cfg.alias = dialog.result_alias or username[:2].upper()
+            else:
+                config.users.append(UserConfig(
+                    username=username,
+                    display_name=dialog.result_display_name,
+                    alias=dialog.result_alias or username[:2].upper(),
+                ))
+            self.project_service.save_project()
+            self.info_pane.refresh_user_info()
+            self.set_status("Profile updated.")
 
     def add_reviewer_to_project(self):
         """Open dialog to add a reviewer to the project."""

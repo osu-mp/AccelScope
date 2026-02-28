@@ -257,9 +257,10 @@ class ProjectService:
             logging.warning("No active project configuration loaded.")
             return None
 
-    def create_project(self, proj_name, location, data_root):
+    def create_project(self, proj_name, location, data_root, entries=None):
         """
         Handles project creation including validation and saving the config.
+        entries: optional list of DirectoryEntry/FileEntry to pre-populate the project.
         """
         # Validate inputs
         if not proj_name or not location or not data_root:
@@ -306,9 +307,15 @@ class ProjectService:
         project_config = ProjectConfig(
             proj_name=proj_name,
             users=[UserConfig(username=username, data_root=data_root)],
-            entries=[],
+            entries=entries or [],
             label_display=default_label_display
         )
+
+        # Assign unique IDs to any FileEntry objects that were pre-populated
+        if entries:
+            self.current_project_config = project_config
+            self.current_project_path = location
+            self._assign_ids_recursive(project_config.entries)
 
         # Save the project configuration as a JSON file
         self._save_project_config(location, project_config)
@@ -325,6 +332,15 @@ class ProjectService:
         except Exception as e:
             logging.error(f"Failed to save project config to {location}: {e}")
             raise
+
+    def _assign_ids_recursive(self, entries):
+        """Recursively assign unique IDs to all FileEntry objects that lack one."""
+        for entry in entries:
+            if isinstance(entry, FileEntry):
+                if not entry.id:
+                    entry.id = self._generate_unique_id()
+            elif isinstance(entry, DirectoryEntry):
+                self._assign_ids_recursive(entry.entries)
 
     def _generate_unique_id(self):
         """Generate a unique file ID that does not already exist in the project configuration."""

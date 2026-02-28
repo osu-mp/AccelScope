@@ -52,8 +52,8 @@ class InfoPane(ttk.Frame):
         reviewers = self.project_service.get_reviewers()
         alias = reviewers.get(current_user, {}).get("alias", current_user[:2].upper()) if reviewers else current_user[:2].upper()
 
-        ttk.Label(self.comments_frame, text=f"{alias} (you)", font=FONT_BODY).pack(
-            fill=tk.X, padx=PAD_SM, pady=(PAD_SM, 0))
+        self.current_user_alias_label = ttk.Label(self.comments_frame, text=f"{alias} (you)", font=FONT_BODY)
+        self.current_user_alias_label.pack(fill=tk.X, padx=PAD_SM, pady=(PAD_SM, 0))
         self.comments_text = tk.Text(self.comments_frame, height=3, width=40)
         self.comments_text.pack(fill=tk.X, padx=PAD_SM, pady=PAD_SM)
         self.comments_text.bind("<KeyRelease>", self.on_comments_change)
@@ -113,6 +113,15 @@ class InfoPane(ttk.Frame):
     def reset_cursor_report(self):
         """Reset cursor report values to '-' when the cursor leaves the viewer."""
         self.update_cursor_report(None, {key: None for key in self.labels if key != 'Time'})
+
+    def refresh_user_info(self):
+        """Refresh alias label and reviewer checkboxes after a profile update."""
+        current_user = self.project_service.get_current_reviewer()
+        reviewers = self.project_service.get_reviewers()
+        alias = reviewers.get(current_user, {}).get("alias", current_user[:2].upper()) if reviewers else current_user[:2].upper()
+        if hasattr(self, 'current_user_alias_label'):
+            self.current_user_alias_label.config(text=f"{alias} (you)")
+        self._build_reviewer_checkboxes()
 
     def reset_ui(self):
         """Reset dynamic components (checkboxes, legend) when a new project is loaded."""
