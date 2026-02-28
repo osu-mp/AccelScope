@@ -4,6 +4,10 @@
 - ~~Inter-annotator agreement / review workflow~~ (multi-reviewer verification added)
 - ~~Replace data_root_directory + reviewers with explicit users list~~ (user config refactor done)
 - Multi-day file concatenation in viewer
+- **Info pane clear/refresh on new project load** — when a new project is created or opened, the info pane should reset (clear file metadata, verification checkboxes, comments) so stale data from a previous session isn't visible.
+- **Project browser drag-and-drop** — allow dragging a CSV entry from one subdirectory to another within the project browser tree; update the project config on drop.
+- **Open file in viewer on add** — when a file is added to the project via right-click or menu, automatically open it in the viewer and zoom to fit all data (same as double-click behaviour).
+- **Viewer zoom-to-fit on file open** — currently opening a file while zoomed all the way out shows nothing. Investigate whether the viewer needs a zoom reset on each new file opened. Consider whether tabs for multiple open files are feasible (memory tradeoff: each open file holds its full CSV in memory).
 
 ## Verify: Datetime & Config Generalization
 

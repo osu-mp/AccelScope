@@ -1,6 +1,7 @@
 import json
 import logging
 from models.directory_entry import DirectoryEntry
+from models.file_entry import FileEntry
 from models.input_settings import InputSettings
 from models.label_display import LabelDisplay
 from models.output_settings import OutputSettings
@@ -53,7 +54,10 @@ class ProjectConfig:
     @staticmethod
     def from_dict(data):
         """Load the project config from a dictionary."""
-        entries = [DirectoryEntry.from_dict(entry) for entry in data.get("entries", [])]
+        entries = [
+            FileEntry.from_dict(e) if "path" in e else DirectoryEntry.from_dict(e)
+            for e in data.get("entries", [])
+        ]
         label_display = [LabelDisplay.from_dict(display) for display in data.get("label_display", [])]
         output_settings = OutputSettings.from_dict(data.get("output_settings", {}))
 
