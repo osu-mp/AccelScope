@@ -40,6 +40,15 @@ class ProjectBrowser(ttk.Frame):
         self.tree.bind("<Button-3>", self.show_context_menu)  # Right-click on Windows/Linux
         self.tree.bind("<Double-1>", self.on_double_click)
 
+        # Drag-and-drop state
+        self._drag_source_fid = None   # file entry UUID being dragged
+        self._drag_highlight = None    # iid currently highlighted as drop target
+        self.tree.tag_configure("drop_target", background="#cce8ff")
+
+        self.tree.bind("<ButtonPress-1>", self._on_drag_start)
+        self.tree.bind("<B1-Motion>", self._on_drag_motion)
+        self.tree.bind("<ButtonRelease-1>", self._on_drag_release)
+
     def _create_filter_bar(self):
         """Create a filter bar with text search and status filter."""
         filter_frame = ttk.Frame(self)
@@ -290,3 +299,68 @@ class ProjectBrowser(ttk.Frame):
         self.tree.delete(selected_item)
 
         self.parent.set_status(f"Deleted file: {file_entry.path}")
+
+    # ── Drag-and-drop ────────────────────────────────────────────────────────
+
+    def _item_is_file(self, iid):
+        """Return True if iid corresponds to a file entry (has a UUID value)."""
+        return bool(self.tree.item(iid, "values"))
+
+    def _on_drag_start(self, event):
+        """Record drag source if the clicked item is a file."""
+        iid = self.tree.identify_row(event.y)
+        if iid and self._item_is_file(iid):
+            self._drag_source_fid = self.tree.item(iid, "values")[0]
+            self.tree.config(cursor="fleur")
+        else:
+            self._drag_source_fid = None
+
+    def _on_drag_motion(self, event):
+        """Highlight the directory under the cursor as a potential drop target."""
+        if not self._drag_source_fid:
+            return
+
+        target_iid = self.tree.identify_row(event.y)
+
+        # Unhighlight previous target
+        if self._drag_highlight and self._drag_highlight != target_iid:
+            self._restore_item_tags(self._drag_highlight)
+            self._drag_highlight = None
+
+        # Highlight new target (only directories — items without values)
+        if target_iid and not self._item_is_file(target_iid):
+            existing_tags = list(self.tree.item(target_iid, "tags"))
+            if "drop_target" not in existing_tags:
+                self.tree.item(target_iid, tags=existing_tags + ["drop_target"])
+            self._drag_highlight = target_iid
+
+    def _on_drag_release(self, event):
+        """Perform the move if dropped onto a valid directory."""
+        self.tree.config(cursor="")
+
+        target_iid = self.tree.identify_row(event.y)
+
+        # Unhighlight
+        if self._drag_highlight:
+            self._restore_item_tags(self._drag_highlight)
+            self._drag_highlight = None
+
+        fid = self._drag_source_fid
+        self._drag_source_fid = None
+
+        if not fid or not target_iid or self._item_is_file(target_iid):
+            return
+
+        target_path = self.get_full_path(target_iid)
+        self.project_service.move_file(fid, target_path)
+
+        # Refresh tree to reflect new structure
+        self.load_project()
+        self.parent.set_status(f"Moved file to '{target_path or 'project root'}'.")
+
+    def _restore_item_tags(self, iid):
+        """Remove the drop_target tag from an item, restoring its original colour."""
+        if not self.tree.exists(iid):
+            return
+        tags = [t for t in self.tree.item(iid, "tags") if t != "drop_target"]
+        self.tree.item(iid, tags=tags)

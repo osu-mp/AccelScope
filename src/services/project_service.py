@@ -453,6 +453,42 @@ class ProjectService:
             freq = 16
         return math.ceil(1000 / freq)
 
+    def move_file(self, file_id, target_dir_path):
+        """Move a file entry to a different directory within the project."""
+        if not self.current_project_config:
+            logging.warning("No active project configuration loaded.")
+            return
+
+        file_entry = self.find_file_by_id(file_id)
+        if not file_entry:
+            logging.error(f"File with ID '{file_id}' not found.")
+            return
+
+        # Remove from current location
+        parent = self.find_parent_directory_of_file(file_id, self.current_project_config.entries)
+        if parent:
+            parent.entries.remove(file_entry)
+        else:
+            # File is at root level
+            try:
+                self.current_project_config.entries.remove(file_entry)
+            except ValueError:
+                logging.error(f"File '{file_id}' not found at root level.")
+                return
+
+        # Add to target location
+        target, is_root = self.find_directory_by_path(target_dir_path)
+        if is_root:
+            self.current_project_config.entries.append(file_entry)
+        elif target is not None:
+            target.entries.append(file_entry)
+        else:
+            logging.error(f"Target directory '{target_dir_path}' not found.")
+            return
+
+        self.save_project()
+        logging.info(f"Moved file '{file_id}' to '{target_dir_path}'.")
+
     def delete_file_by_id(self, id):
         """Delete a file entry from the project configuration by file ID."""
         if not self.current_project_config:

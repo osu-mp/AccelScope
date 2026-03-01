@@ -20,7 +20,7 @@ from gui_components.hotkey_dialog import HotkeyDialog
 from gui_components.output_progress_dialog import OutputProgressDialog
 from gui_components.project_browser import ProjectBrowser
 from gui_components.verification_threshold_dialog import VerificationThresholdDialog
-from gui_components.viewer import Viewer
+from gui_components.viewer_notebook import ViewerNotebook
 from gui_components.status_bar import StatusBar
 from gui_components.new_project_dialog import NewProjectDialog
 from models.directory_entry import DirectoryEntry
@@ -154,7 +154,7 @@ class MainApplication(tk.Tk):
         self.project_browser.load_project()
 
         # Initialize the main viewer/content area as another pane (middle)
-        self.viewer = Viewer(self, project_service=self.project_service, relief=tk.SUNKEN)
+        self.viewer = ViewerNotebook(self, project_service=self.project_service, relief=tk.SUNKEN)
         self.paned_window.add(self.viewer, minsize=gui_theme.PANE_MIN_VIEWER)
         self.viewer.set_project_config(project_config)
 
@@ -271,12 +271,12 @@ class MainApplication(tk.Tk):
     def open_file(self, file_entry):
         self.status_bar.set(f"Attempting to load CSV: {file_entry.path}")
         self.viewer.load_file_entry(file_entry)
+        # ViewerNotebook.load_file_entry triggers _on_tab_changed which updates
+        # the info pane, but we also set it explicitly here so it's immediate
+        # and so the user_app_config can be updated.
+        self.info_pane.set_file_entry(file_entry)
         csv_name = self.viewer.get_data_path()
         self.status_bar.set(f"Loaded CSV: {csv_name}")
-
-        # Set the file entry in the InfoPane
-        self.info_pane.set_file_entry(file_entry)
-
         self.user_app_config_service.set_last_opened_file(file_entry.id)
 
     def _prompt_data_root_if_invalid(self):
