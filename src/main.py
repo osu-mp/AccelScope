@@ -108,8 +108,11 @@ class MainApplication(tk.Tk):
         self.user_app_config_service.update_window_state(self.state())
 
         # Get the current sash positions to calculate the widths of different panes
-        sash_position_0 = self.paned_window.sash_coord(0)[0]
-        sash_position_1 = self.paned_window.sash_coord(1)[0]
+        try:
+            sash_position_0 = self.paned_window.sash_coord(0)[0]
+            sash_position_1 = self.paned_window.sash_coord(1)[0]
+        except tk.TclError:
+            return  # widget already destroyed (fires during shutdown)
         total_width = self.paned_window.winfo_width()
         info_width = total_width - sash_position_1
 
