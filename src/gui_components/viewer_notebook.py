@@ -1,8 +1,38 @@
 import logging
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk
 
 import matplotlib.pyplot as plt
+
+# Pixel size of the close × image placed in each tab header
+_CLOSE_IMG_SIZE = 12
+
+
+def _make_close_image(size=_CLOSE_IMG_SIZE):
+    """
+    Build a tiny PhotoImage with an × drawn pixel-by-pixel.
+    Returns the image (caller must keep a reference or it will be GC'd).
+    """
+    img = tk.PhotoImage(width=size, height=size)
+    # Transparent background (uses the widget's background colour)
+    bg = '#d9d9d9'
+    for y in range(size):
+        img.put(' '.join([bg] * size), to=(0, y))
+    # Draw two diagonals in dark grey, 2 px thick
+    fg = '#404040'
+    pad = 2
+    for i in range(pad, size - pad):
+        for dx in range(2):
+            # top-left → bottom-right
+            xi, yi = i + dx, i
+            if 0 <= xi < size and 0 <= yi < size:
+                img.put(fg, to=(xi, yi, xi + 1, yi + 1))
+            # top-right → bottom-left
+            xj, yj = (size - 1 - i) + dx, i
+            if 0 <= xj < size and 0 <= yj < size:
+                img.put(fg, to=(xj, yj, xj + 1, yj + 1))
+    return img
 
 
 class _TabFrame(ttk.Frame):
@@ -31,8 +61,8 @@ class ViewerNotebook(ttk.Frame):
     Tab management:
       - Double-clicking a file in the project browser opens it in a new tab
         (or switches to its existing tab if already open).
-      - Middle-click a tab, or Ctrl+W, to close the active tab.
-      - Right-clicking a tab header shows a Close option.
+      - Click the × on the tab header to close it.
+      - Middle-click a tab, Ctrl+W, or right-click → Close Tab also work.
     """
 
     def __init__(self, parent, project_service, **kwargs):
@@ -44,38 +74,40 @@ class ViewerNotebook(ttk.Frame):
         self._project_config = None
         self._info_pane = None
 
-        # Tab tracking: file_entry_id -> (tab_frame, Viewer, FileEntry)
-        self._tabs = {}  # fid -> {'frame': Frame, 'viewer': Viewer, 'entry': FileEntry}
+        # Tab tracking: file_entry_id -> {'frame', 'viewer', 'entry'}
+        self._tabs = {}
+
+        # Close button image — must be kept alive on self
+        self._close_img = _make_close_image()
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         self.notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
-        self.notebook.bind("<Button-2>", self._on_middle_click)   # middle-click to close
-        self.notebook.bind("<Button-3>", self._on_right_click_tab)  # right-click menu
+        self.notebook.bind("<Button-1>",   self._on_click)        # × close
+        self.notebook.bind("<Button-2>",   self._on_middle_click) # middle-click
+        self.notebook.bind("<Button-3>",   self._on_right_click_tab)
 
-        # Ctrl+W closes active tab (bound at Frame level)
+        # Ctrl+W closes active tab
         self.bind_all("<Control-w>", lambda e: self._close_active_tab())
 
-        # Right-click tab context menu
+        # Right-click context menu
         self._tab_menu = tk.Menu(self, tearoff=0)
-        self._tab_menu.add_command(label="Close Tab", command=self._close_active_tab)
+        self._tab_menu.add_command(label="Close Tab",      command=self._close_active_tab)
         self._tab_menu.add_command(label="Close All Tabs", command=self._close_all_tabs)
 
     # ── Public interface (proxies to active Viewer) ──────────────────────────
 
     def load_file_entry(self, file_entry):
         """Open file_entry in a new tab, or switch to existing tab."""
-        from gui_components.viewer import Viewer  # local import avoids circular dep
+        from gui_components.viewer import Viewer  # avoids circular import
 
         fid = file_entry.id
 
         if fid in self._tabs:
-            # Switch to existing tab
             self.notebook.select(self._tabs[fid]['frame'])
             return
 
-        # Create new tab — _TabFrame proxies set_status() to the main app
         tab_frame = _TabFrame(self.notebook, main_app=self.parent)
         viewer = Viewer(tab_frame, project_service=self.project_service)
         viewer.pack(fill=tk.BOTH, expand=True)
@@ -91,7 +123,10 @@ class ViewerNotebook(ttk.Frame):
         if tab_label.lower().endswith('.csv'):
             tab_label = tab_label[:-4]
 
-        self.notebook.add(tab_frame, text=tab_label)
+        self.notebook.add(tab_frame,
+                          text=tab_label,
+                          image=self._close_img,
+                          compound=tk.RIGHT)
         self._tabs[fid] = {'frame': tab_frame, 'viewer': viewer, 'entry': file_entry}
         self.notebook.select(tab_frame)
 
@@ -165,7 +200,6 @@ class ViewerNotebook(ttk.Frame):
     # ── Internal helpers ─────────────────────────────────────────────────────
 
     def _active_viewer(self):
-        """Return the Viewer in the currently selected tab, or None."""
         selected = self.notebook.select()
         if not selected:
             return None
@@ -183,27 +217,62 @@ class ViewerNotebook(ttk.Frame):
                 return fid
         return None
 
-    # ── Tab lifecycle ────────────────────────────────────────────────────────
+    def _tab_index_for_fid(self, fid):
+        frame_str = str(self._tabs[fid]['frame'])
+        for i, path in enumerate(self.notebook.tabs()):
+            if path == frame_str:
+                return i
+        return None
+
+    # ── Click → close detection ──────────────────────────────────────────────
+
+    def _on_click(self, event):
+        """Close a tab when the user clicks its × image."""
+        try:
+            tab_idx = self.notebook.index(f"@{event.x},{event.y}")
+        except tk.TclError:
+            return  # click not on any tab
+
+        # The × image is _CLOSE_IMG_SIZE wide, placed at the right of the tab.
+        # Compute cumulative tab widths to find the right edge of the target tab.
+        try:
+            font = tkfont.nametofont("TkDefaultFont")
+        except Exception:
+            font = tkfont.Font()
+
+        tab_pad = 14  # approximate horizontal padding per tab (clam theme)
+        x_cursor = 0
+        for i in range(self.notebook.index("end")):
+            text = self.notebook.tab(i, "text")
+            tab_w = font.measure(text) + _CLOSE_IMG_SIZE + tab_pad
+            if i == tab_idx:
+                # Right edge of this tab; × occupies the last _CLOSE_IMG_SIZE px
+                x_right = x_cursor + tab_w
+                if event.x >= x_right - _CLOSE_IMG_SIZE - 2:  # 2 px tolerance
+                    self._close_tab_by_index(tab_idx)
+                return
+            x_cursor += tab_w
+
+    # ── Tab event handlers ───────────────────────────────────────────────────
 
     def _on_tab_changed(self, event):
-        """Update info pane when user switches tabs."""
         v = self._active_viewer()
         if v and self._info_pane and v.file_entry:
             self._info_pane.set_file_entry(v.file_entry)
 
     def _on_middle_click(self, event):
-        """Close the tab that was middle-clicked."""
-        index = self.notebook.index(f"@{event.x},{event.y}")
-        if index is not None:
+        try:
+            index = self.notebook.index(f"@{event.x},{event.y}")
             self._close_tab_by_index(index)
+        except tk.TclError:
+            pass
 
     def _on_right_click_tab(self, event):
-        """Show close menu when right-clicking on a tab header."""
         try:
             self.notebook.index(f"@{event.x},{event.y}")
             self._tab_menu.post(event.x_root, event.y_root)
         except tk.TclError:
-            pass  # clicked outside a tab header
+            pass
 
     def _close_active_tab(self):
         fid = self._active_file_id()
@@ -215,7 +284,6 @@ class ViewerNotebook(ttk.Frame):
             self._close_tab(fid)
 
     def _close_tab_by_index(self, index):
-        """Close the tab at the given notebook index."""
         frame_path = self.notebook.tabs()[index]
         for fid, tab in self._tabs.items():
             if str(tab['frame']) == frame_path:
@@ -223,19 +291,17 @@ class ViewerNotebook(ttk.Frame):
                 return
 
     def _close_tab(self, fid):
-        """Free a tab's resources and remove it from the notebook."""
         tab = self._tabs.pop(fid, None)
         if tab is None:
             return
         viewer = tab['viewer']
         try:
-            plt.close(viewer.fig)  # free matplotlib figure memory
+            plt.close(viewer.fig)
         except Exception:
             pass
         self.notebook.forget(tab['frame'])
         tab['frame'].destroy()
         logging.debug(f"Closed viewer tab for file id {fid}")
 
-        # Clear info pane if no tabs remain
         if not self._tabs and self._info_pane:
             self._info_pane.set_file_entry(None)
