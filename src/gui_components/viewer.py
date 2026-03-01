@@ -747,7 +747,7 @@ class Viewer(tk.Frame):
         self.ax.set_xlim(min_start_num - margin, max_end_num + margin)
 
         # Redraw the canvas to reflect changes
-        self.canvas.draw_idle()
+        self.canvas.draw()
 
         # Store new limits to keep pan/zoom consistent across user actions
         self.current_xlim = self.ax.get_xlim()
@@ -773,7 +773,7 @@ class Viewer(tk.Frame):
         self.ax.set_xlim(data_min_num - margin, data_max_num + margin)
 
         # Redraw the canvas to reflect changes
-        self.canvas.draw_idle()
+        self.canvas.draw()
 
         # Store new limits to keep pan/zoom consistent across user actions
         self.current_xlim = self.ax.get_xlim()
