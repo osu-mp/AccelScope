@@ -47,6 +47,10 @@ class Viewer(tk.Frame):
         self._command_stack = LabelCommandStack()
         self._drag_start_time = None  # saved start_time before drag
         self._drag_end_time = None    # saved end_time before drag
+        self.drag_edge = None         # 'start', 'end', or 'body'
+        self._drag_offset = 0.0       # cursor distance from rect left on body-drag click
+        self._drag_width = 0.0        # label width preserved during body drag
+        self._drag_gap_idx = 0        # which gap between other labels the body drag is in
         self.setup_viewer()
 
     def set_info_pane(self, info_pane):
@@ -356,20 +360,82 @@ class Viewer(tk.Frame):
         else:
             logging.warning("Unable to save labels to project config as no file entry found")
 
+    def _get_sorted_other_intervals(self):
+        """Return sorted [(start_num, end_num)] for all labels except the selected one."""
+        others = sorted(
+            [l for l in self.labels if l is not self.selected_label],
+            key=lambda l: l.start_time
+        )
+        return [(mdates.date2num(l.start_time), mdates.date2num(l.end_time)) for l in others]
+
+    def _compute_gaps(self, other_intervals):
+        """Return [(gap_min, gap_max)] for the free regions around other_intervals."""
+        gaps = []
+        prev_end = -np.inf
+        for bs, be in other_intervals:
+            gaps.append((prev_end, bs))
+            prev_end = be
+        gaps.append((prev_end, np.inf))
+        return gaps
+
+    def _find_gap_for_cursor(self, cursor_x, other_intervals):
+        """Return gap index if cursor is in a free region, None if inside a block."""
+        for i, (bs, be) in enumerate(other_intervals):
+            if cursor_x < bs:
+                return i
+            if cursor_x <= be:
+                return None  # inside block i
+        return len(other_intervals)
+
     def on_mouse_move(self, event):
         # Handle label dragging first (unthrottled for responsiveness)
         if event.inaxes and self.dragging and self.selected_label:
             rect = self.rectangles[self.selected_label]
+            other_ivs = self._get_sorted_other_intervals()
+
             if self.drag_edge == 'start':
-                if event.xdata < rect.get_x() + rect.get_width():  # Prevent overlap
-                    new_width = (rect.get_x() + rect.get_width()) - event.xdata
-                    rect.set_x(event.xdata)
-                    rect.set_width(new_width)
+                rect_right = rect.get_x() + rect.get_width()
+                if event.xdata < rect_right:
+                    # Clamp: can't cross the end of the nearest label to the left
+                    left_bound = max(
+                        (be for _bs, be in other_ivs if be < rect_right),
+                        default=-np.inf
+                    )
+                    clamped = max(event.xdata, left_bound)
+                    rect.set_x(clamped)
+                    rect.set_width(rect_right - clamped)
                     self.ax.figure.canvas.draw_idle()
+
             elif self.drag_edge == 'end':
-                if event.xdata > rect.get_x():
-                    rect.set_width(event.xdata - rect.get_x())
+                rect_left = rect.get_x()
+                if event.xdata > rect_left:
+                    # Clamp: can't cross the start of the nearest label to the right
+                    right_bound = min(
+                        (bs for bs, _be in other_ivs if bs > rect_left),
+                        default=np.inf
+                    )
+                    clamped = min(event.xdata, right_bound)
+                    rect.set_width(clamped - rect_left)
                     self.ax.figure.canvas.draw_idle()
+
+            elif self.drag_edge == 'body':
+                gaps = self._compute_gaps(other_ivs)
+                # Hop: update gap when cursor exits a block into a new free region
+                new_gap = self._find_gap_for_cursor(event.xdata, other_ivs)
+                if new_gap is not None:
+                    self._drag_gap_idx = new_gap
+                gap_min, gap_max = gaps[self._drag_gap_idx]
+                natural_start = event.xdata - self._drag_offset
+                if gap_max - gap_min <= self._drag_width:
+                    new_start = gap_min  # label fills the whole gap
+                elif gap_max == np.inf:
+                    new_start = max(natural_start, gap_min)
+                else:
+                    new_start = max(gap_min, min(natural_start, gap_max - self._drag_width))
+                rect.set_x(new_start)
+                rect.set_width(self._drag_width)
+                self.ax.figure.canvas.draw_idle()
+
             return
 
         # Throttle remaining processing to ~30fps
@@ -517,9 +583,18 @@ class Viewer(tk.Frame):
                             self._drag_end_time = label.end_time
                             return
                         elif not self.start_label_time and rect_start < event.xdata < rect_end:
-                            # Inside the rectangle
+                            # Inside the rectangle — start body drag
+                            self.dragging = True
                             self.selected_label = label
-                            self.parent.set_status(f"'{label.behavior}' label selected")
+                            self.drag_edge = 'body'
+                            self.drag_start = event.xdata
+                            self._drag_start_time = label.start_time
+                            self._drag_end_time = label.end_time
+                            self._drag_offset = event.xdata - rect_start
+                            self._drag_width = rect.get_width()
+                            other_ivs = self._get_sorted_other_intervals()
+                            gap_idx = self._find_gap_for_cursor(event.xdata, other_ivs)
+                            self._drag_gap_idx = gap_idx if gap_idx is not None else 0
                             return
 
                 if self.start_label_time:
@@ -645,6 +720,9 @@ class Viewer(tk.Frame):
             elif self.drag_edge == 'end':
                 new_start = self.selected_label.start_time
                 new_end = mdates.num2date(rect.get_x() + rect.get_width()).replace(tzinfo=None)
+            elif self.drag_edge == 'body':
+                new_start = mdates.num2date(rect.get_x()).replace(tzinfo=None)
+                new_end = mdates.num2date(rect.get_x() + rect.get_width()).replace(tzinfo=None)
             else:
                 new_start = self.selected_label.start_time
                 new_end = self.selected_label.end_time
@@ -746,12 +824,11 @@ class Viewer(tk.Frame):
         # Set new x-axis limits with the margin
         self.ax.set_xlim(min_start_num - margin, max_end_num + margin)
 
-        # Redraw the canvas to reflect changes
-        self.canvas.draw()
-
-        # Store new limits to keep pan/zoom consistent across user actions
+        # Immediate draw then schedule a view-aware replot (same as scroll zoom)
+        self.canvas.draw_idle()
         self.current_xlim = self.ax.get_xlim()
         self.current_ylim = self.ax.get_ylim()
+        self._schedule_replot()
 
         self.parent.set_status(f"Zoomed to fit all labels from {min_start_time.strftime('%H:%M:%S')} to {max_end_time.strftime('%H:%M:%S')}.")
 
@@ -772,12 +849,11 @@ class Viewer(tk.Frame):
         # Set new x-axis limits with the margin
         self.ax.set_xlim(data_min_num - margin, data_max_num + margin)
 
-        # Redraw the canvas to reflect changes
-        self.canvas.draw()
-
-        # Store new limits to keep pan/zoom consistent across user actions
+        # Immediate draw then schedule a view-aware replot (same as scroll zoom)
+        self.canvas.draw_idle()
         self.current_xlim = self.ax.get_xlim()
         self.current_ylim = self.ax.get_ylim()
+        self._schedule_replot()
 
         self.parent.set_status("Zoomed out to show all data.")
 
