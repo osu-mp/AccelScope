@@ -1,6 +1,8 @@
 import copy
 from datetime import datetime, date, time as dt_time, timedelta
 import logging
+import os
+import threading
 import time as _time
 import numpy as np
 import pandas as pd
@@ -166,43 +168,46 @@ class Viewer(tk.Frame):
             self.project_config = project_config
 
     def load_file_entry(self, file_entry):
-        """Load a file entry and configure the viewer accordingly."""
-        # Store the file entry and retrieve the file path
+        """Start loading a file entry asynchronously. Status bar updates on start/finish."""
         self.file_entry = copy.deepcopy(file_entry)
         file_path = self.project_service.get_file_path(file_entry)
-        self.parent.set_status(f"Attempting to load {file_path}")
+        filename = os.path.basename(file_path)
+        self.parent.set_status(f"Loading {filename}…")
 
-        # Initialize the input interface based on the project config's input settings
         input_interface = self.get_input_interface()
 
-        try:
-            # Load data using the input interface
-            self.data = input_interface.load_data(file_path)
-            input_interface.validate_format(self.data)  # Optional validation step
+        def _load():
+            try:
+                data = input_interface.load_data(file_path)
+                input_interface.validate_format(data)
+                self.parent.after(0, lambda: self._on_load_complete(file_entry, file_path, input_interface, data))
+            except Exception as e:
+                logging.error(f"Error loading data from {file_path}: {e}")
+                self.parent.after(0, lambda: self.parent.set_status(f"Failed to load: {filename}"))
 
-            # Cache timestamp data for performance
-            self._ts_numeric = self.data['Timestamp'].values.astype('int64') // 10**6  # ms as int64
-            self._ts_naive = self.data['Timestamp'].dt.tz_localize(None)
-            self._data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
-            self._data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
+        threading.Thread(target=_load, daemon=True).start()
 
-            # Set up axes configuration
-            self.set_axes_config(input_interface.get_axes_config())
+    def _on_load_complete(self, file_entry, file_path, input_interface, data):
+        """Called on the main thread once background CSV load succeeds."""
+        self.data = data
 
-            # Initialize labels and other file-related attributes
-            self.data_path = file_path
-            self.labels = file_entry.labels
-            self._command_stack.clear()
-            self.current_xlim = None  # reset zoom so new file shows all data
-            self.setup_mouse_events()
+        # Cache timestamp data for performance
+        self._ts_numeric = self.data['Timestamp'].values.astype('int64') // 10**6  # ms as int64
+        self._ts_naive = self.data['Timestamp'].dt.tz_localize(None)
+        self._data_min = pd.Timestamp(self.data['Timestamp'].min()).tz_localize(None).to_pydatetime()
+        self._data_max = pd.Timestamp(self.data['Timestamp'].max()).tz_localize(None).to_pydatetime()
 
-            # Finalize loading status and update label display
-            self.parent.set_status(f"Loaded: {file_path}")
-            self.update_label_list()
+        self.set_axes_config(input_interface.get_axes_config())
 
-        except Exception as e:
-            logging.error(f"Error loading data from {file_path}: {e}")
-            self.parent.set_status(f"Failed to load file: {file_path}")
+        self.data_path = file_path
+        self.labels = file_entry.labels
+        self._command_stack.clear()
+        self.current_xlim = None  # reset zoom so new file shows all data
+        self.setup_mouse_events()
+
+        filename = os.path.basename(file_path)
+        self.parent.set_status(f"Loaded: {filename}")
+        self.update_label_list()
 
     def get_data_path(self):
         if self.data_path:

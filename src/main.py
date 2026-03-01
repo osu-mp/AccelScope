@@ -272,14 +272,11 @@ class MainApplication(tk.Tk):
             self.info_pane._build_reviewer_checkboxes()
 
     def open_file(self, file_entry):
-        self.status_bar.set(f"Attempting to load CSV: {file_entry.path}")
         self.viewer.load_file_entry(file_entry)
         # ViewerNotebook.load_file_entry triggers _on_tab_changed which updates
         # the info pane, but we also set it explicitly here so it's immediate
         # and so the user_app_config can be updated.
         self.info_pane.set_file_entry(file_entry)
-        csv_name = self.viewer.get_data_path()
-        self.status_bar.set(f"Loaded CSV: {csv_name}")
         self.user_app_config_service.set_last_opened_file(file_entry.id)
 
     def _prompt_data_root_if_invalid(self):

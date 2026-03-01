@@ -6,30 +6,10 @@
 - Multi-day file concatenation in viewer
 - ~~**Info pane clear/refresh on new project load**~~ (done)
 - ~~**Viewer zoom-to-fit on file open**~~ (done)
-- ~~**Project browser drag-and-drop**~~ (done — see verify section below)
-- ~~**Viewer tabs**~~ (done — see verify section below)
-- **Open file in viewer on add** — when a file is added to the project via right-click or menu, automatically open it in the viewer and zoom to fit all data (same as double-click behaviour).
-
-## Verify: Multi-tab Viewer
-
-- [ ] Double-click a file in the project browser — verify it opens in a new tab
-- [ ] Double-click the same file again — verify it switches to the existing tab (no duplicate)
-- [ ] Double-click a second file — verify both tabs coexist independently
-- [ ] Switch between tabs — verify the info pane (comments, verification, labels) updates to match the active tab's file
-- [ ] Close a tab with middle-click — verify the tab closes with no crash
-- [ ] Close a tab with Ctrl+W — verify the active tab closes
-- [ ] Right-click a tab header → Close Tab — verify it closes
-- [ ] Right-click a tab header → Close All Tabs — verify all tabs close and info pane clears
-- [ ] Open a project while tabs are open — verify all tabs close and info pane resets
-
-## Verify: Project Browser Drag-and-Drop
-
-- [ ] Drag a CSV file from one subdirectory and drop it onto another — verify it appears in the target directory
-- [ ] Verify the project JSON is updated correctly after the move
-- [ ] Drag a file and drop onto the project root node — verify it moves to root level
-- [ ] Attempt to drag a directory — verify nothing happens (only files are draggable)
-- [ ] Attempt to drop a file onto another file (not a directory) — verify nothing happens
-- [ ] After a move, open the file from its new location — verify it loads correctly
+- ~~**Project browser drag-and-drop**~~ (done)
+- ~~**Viewer tabs**~~ (done)
+- ~~**Open file in viewer on add**~~ (done)
+- **Status bar loading indicator** — show "Loading XYZ…" in the status bar when a CSV is loading in the viewer; clear on completion.
 
 ## Verify: Datetime & Config Generalization
 
