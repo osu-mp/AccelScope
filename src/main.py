@@ -1,10 +1,12 @@
 import csv
 import getpass
 import logging
+import os
 import os.path
 import threading
 import tkinter as tk
 from tkinter import Menu, filedialog, messagebox
+from PIL import ImageTk, Image
 
 from gui_components import gui_theme
 from gui_components.about_dialog import AboutDialog
@@ -41,6 +43,7 @@ class MainApplication(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('AccelScope')
+        self._set_icon()
         self.setup_logging()
         gui_theme.apply_theme(self)
 
@@ -655,6 +658,13 @@ class MainApplication(tk.Tk):
     def show_about(self):
         """Display info about this program"""
         AboutDialog(self)
+
+    def _set_icon(self):
+        icon_path = os.path.join(os.path.dirname(__file__), 'assets', 'icon.png')
+        if os.path.exists(icon_path):
+            img = Image.open(icon_path)
+            self._icon = ImageTk.PhotoImage(img)
+            self.iconphoto(True, self._icon)
 
     def setup_logging(self, level=logging.INFO):
         logging.basicConfig(
