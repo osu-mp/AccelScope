@@ -258,7 +258,9 @@ class ViewerNotebook(ttk.Frame):
     def _on_tab_changed(self, event):
         v = self._active_viewer()
         if v and self._info_pane and v.file_entry:
-            self._info_pane.set_file_entry(v.file_entry)
+            # Use the canonical FileEntry from _tabs, not v.file_entry which is a deep copy
+            canonical = self._tabs.get(v.file_entry.id, {}).get('entry')
+            self._info_pane.set_file_entry(canonical or v.file_entry)
 
     def _on_middle_click(self, event):
         try:

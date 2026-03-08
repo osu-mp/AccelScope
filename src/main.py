@@ -58,6 +58,7 @@ class MainApplication(tk.Tk):
             self._prompt_data_root_if_invalid()
 
         self.setup_gui()
+        self._update_title()
 
         self.reopen_last_project_file()
 
@@ -172,8 +173,8 @@ class MainApplication(tk.Tk):
         # Create the menu bar
         self.menu_bar = Menu(self)
         file_menu = Menu(self.menu_bar, tearoff=0)
-        file_menu.add_command(label='New Project', command=self.open_new_project_dialog)
-        file_menu.add_command(label='Open Project', command=self.open_project_dialog)
+        file_menu.add_command(label='New Project', accelerator='Ctrl+N', command=self.open_new_project_dialog)
+        file_menu.add_command(label='Open Project', accelerator='Ctrl+O', command=self.open_project_dialog)
         file_menu.add_separator()
         file_menu.add_command(label='Exit', command=self.quit)
 
@@ -181,6 +182,7 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Change Data Root...', command=self.change_data_root)
         proj_menu.add_command(label='Edit Behavior Labels...', command=self.edit_label_display)
         proj_menu.add_command(label='Edit Input Settings...', command=self.edit_input_settings)
+        proj_menu.add_command(label='Verification Threshold...', command=self.edit_verification_threshold)
         proj_menu.add_separator()
         proj_menu.add_command(label='My Profile...', command=self.edit_my_profile)
         proj_menu.add_command(label='Add Reviewer To Project...', command=self.add_reviewer_to_project)
@@ -190,7 +192,6 @@ class MainApplication(tk.Tk):
         proj_menu.add_command(label='Import Labels from CSV...', command=self.import_labels_csv)
         proj_menu.add_separator()
         proj_menu.add_command(label='Labeling Dashboard', command=self.show_labeling_dashboard)
-        proj_menu.add_command(label='Verification Threshold...', command=self.edit_verification_threshold)
         proj_menu.add_separator()
         proj_menu.add_command(label='Generate Output', command=self.generate_project_output)
         proj_menu.add_command(label='Validate Project Config', command=self.check_project_inputs)
@@ -224,6 +225,16 @@ class MainApplication(tk.Tk):
         self.menu_bar.add_cascade(label='Help', menu=help_menu)
 
         self.config(menu=self.menu_bar)
+
+        self.bind_all('<Control-n>', lambda _e: self.open_new_project_dialog())
+        self.bind_all('<Control-o>', lambda _e: self.open_project_dialog())
+
+    def _update_title(self):
+        config = self.project_service.current_project_config
+        if config and config.proj_name:
+            self.title(f'AccelScope - {config.proj_name}')
+        else:
+            self.title('AccelScope')
 
     def file_imported(self, file_path):
         self.viewer.load_data(file_path)
@@ -270,6 +281,7 @@ class MainApplication(tk.Tk):
             self.info_pane.set_project_service(self.project_service)
             self.info_pane.set_file_entry(None)
             self.info_pane._build_reviewer_checkboxes()
+            self._update_title()
 
     def open_file(self, file_entry):
         self.viewer.load_file_entry(file_entry)
