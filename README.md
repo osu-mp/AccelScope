@@ -1,79 +1,134 @@
-# AccelScope - Accelerometer Data Visualization Tool
+# AccelScope
 
-AccelScope is a powerful tool designed to visualize and label accelerometer data. It supports viewing large datasets, annotating behaviors, and exporting the data for further analysis. Initially focused on wildlife movement data (e.g., cougars and wolves), AccelScope offers a generic solution for exploring and annotating time series data from accelerometers.
+A Tkinter-based tool for visualizing, annotating, and exporting accelerometer time-series data. Designed for wildlife movement research (cougars, wolves, etc.) but generic enough for any accelerometer dataset. Produces output in BEBE (Bio-logger Ethogram Benchmark) format.
 
 ## Features
-- Visualize X, Y, and Z axis data over time
-- Label data with user-defined behaviors
-- Zoom in/out with intuitive mouse and keyboard controls
-- Pan through the data efficiently
-- Hotkey to zoom all labels into view (F), and show all data (A)
-- Customizable graph opacity, axis controls, and user comments per CSV
+
+### Viewer
+- Matplotlib-based interactive plot with X/Y/Z acceleration axes
+- Multi-tab interface — open several CSV files simultaneously
+- Pan and zoom with mouse, scroll wheel, or keyboard
+- Real-time cursor report (timestamp + X/Y/Z values) in the info pane
+- Toggle individual axes on/off; configurable colors and opacity
+- Async CSV loading with status bar progress indicator
+
+### Labeling
+- Click-drag on the plot to draw behavior labels
+- Drag label edges to resize, drag body to move (with boundary clamping)
+- Undo/redo (Ctrl+Z / Ctrl+Y)
+- Delete selected label with Delete key
+- Per-project behavior types with custom name, color, opacity, and output integer
+
+### Project Management
+- **New Project** (Ctrl+N): wizard scans a data root directory, auto-discovers CSVs, lets you flatten by individual ID, select files, and set project options
+- **Open Project** (Ctrl+O): load any `.json` project file
+- Hierarchical project browser with text and status filters
+- Drag-and-drop reordering in the browser
+- Color-coded verification status in browser tree (green / yellow / unverified)
+- Project JSON auto-saved on every change; restores last-opened project and file on startup
+
+### Multi-User Collaboration
+- Each project stores a `users` list mapping OS usernames to data root paths and display aliases
+- **My Profile**: set your display name and alias
+- **Add Reviewer**: invite collaborators; each reviewer verifies files independently
+- **Verification threshold**: configurable percentage of reviewers required for a file to show as fully verified (green)
+- Per-file, per-user comments with auto-save
+
+### Import / Export
+- Export all labels to CSV (`file_id`, `file_path`, `behavior`, `start_time`, `end_time`)
+- Import labels from CSV with conflict resolution (replace / skip / cancel)
+- **Generate Output**: produces BEBE-format output with per-method subfolders (`average`, `nth_value`, `min`, `max`), headerless clip CSVs, and `dataset_metadata.yaml`
+  - Configurable output frequency (1–16 Hz downsampling)
+  - Output period: full file, labeled regions only, or labeled with configurable buffer
+  - Label rounding to nearest N minutes
+
+### Labeling Dashboard
+- Overview: total files, files with labels, files fully verified
+- Per-behavior table: label count, files involved, total duration
+- Per-reviewer table: verified file counts
+
+### Configuration
+- **Edit Input Settings**: input type, frequency (Hz), Y-axis range, individual ID regex, plot title format
+- **Edit Behavior Labels**: add/remove behaviors, set color/opacity/output value
+- **Verification Threshold**: set required reviewer percentage
+- **Preferences**: comment auto-save delay, info pane width
+- **Validate Project Config**: checks all file paths and label integrity
+
+## Hotkeys
+
+| Key | Action |
+|-----|--------|
+| `A` | Zoom to show all data |
+| `F` | Zoom to fit all labels |
+| `↑` / `Ctrl+Scroll ↑` | Zoom in |
+| `↓` / `Ctrl+Scroll ↓` | Zoom out |
+| `←` / `Scroll ↓` | Pan left |
+| `→` / `Scroll ↑` | Pan right |
+| `Delete` | Delete selected label |
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` | Redo |
+| `Ctrl+N` | New Project |
+| `Ctrl+O` | Open Project |
+| `Ctrl+W` | Close active tab |
 
 ## Getting Started
 
 ### Prerequisites
-Make sure you have the following installed:
-- Python 3.8 or later
-- conda (if using the provided `environment.yml`)
+- Python 3.8+
+- conda (recommended)
 
-### Setting Up the Environment
+### Setup
 
-#### Option 1: Using Conda
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/osu-mp/accelscope.git
-   cd accelscope
-   ```
+```bash
+git clone https://github.com/osu-mp/AccelScope.git
+cd AccelScope
+conda env create -f environment.yml
+conda activate accel-scope
+```
 
-2. Create the environment using `environment.yml`:
-   ```bash
-   conda env create -f environment.yml
-   ```
-
-3. Activate the environment:
-   ```bash
-   conda activate accel-scope
-   ```
-
-#### Option 2: Using setup.py
-Alternatively, you can use `setup.py` to install the necessary dependencies:
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/accelscope.git
-   cd accelscope
-   ```
-
-2. Install the required packages:
-   ```bash
-   python setup.py install
-   ```
-
-## Running the Tool
-
-After setting up the environment, you can run the tool:
+### Run
 
 ```bash
 python src/main.py
 ```
 
-## Creating a Project
+Or with the local conda env directly:
 
-1. Launch the app and go to `File -> New Project`.
-2. Enter the project details including the project name, location, and root data directory.
-3. After creating the project, use the Project Browser to add subdirectories and CSV files.
-4. Select a CSV file to visualize the data in the main window.
+```bash
+.conda/python.exe src/main.py
+```
 
-## Hotkeys
+## Input Format
 
-- `F`: Zoom to fit all labels.
-- `A`: Zoom to show all data.
-- `Arrow keys`: Pan left/right and zoom in/out.
-- `Delete`: Remove a selected label.
+Currently supports **Vectronic Motion** CSVs:
+- Combines `UTC DateTime` + `Milliseconds` columns into a unified `Timestamp`
+- Acceleration columns: `Acc X [g]`, `Acc Y [g]`, `Acc Z [g]`
+- Skips the first row; filename encodes the date (`YYYY-MM-DD.csv`)
 
-## Customization
+Additional input types can be added by implementing the `InputInterface` base class in `src/input_types/`.
 
-- **Comments**: Add comments to each CSV file for better context and analysis.
-- **User Verified Checkbox**: Verify CSV data and adjust its color in the Project Browser.
-- **Axis Controls**: Show/hide specific axes from the data display (X, Y, Z).
+## Project Structure
+
+```
+src/
+  main.py              # Entry point; MainApplication coordinates all components
+  models/              # Data classes with to_dict/from_dict serialization
+  services/            # Business logic (ProjectService, UserAppConfigService)
+  gui_components/      # Tkinter dialogs and panes
+  input_types/         # CSV input format implementations
+  output_types/        # Output format implementations (BEBE)
+  data_processing/     # Downsampling and analysis utilities
+test/
+  configs/             # Example project JSON files
+  data/                # Test CSV data
+```
+
+## Testing
+
+```bash
+# Run all tests
+python test/run_all_tests.py
+
+# Run a single test file
+python -m pytest test/test_output_settings.py
+```
